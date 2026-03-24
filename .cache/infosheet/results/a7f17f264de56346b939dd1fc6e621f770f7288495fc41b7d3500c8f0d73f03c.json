@@ -1,0 +1,17 @@
+{
+    "format_version": 1,
+    "parser_cache_version": "v1",
+    "updated_at": "2026-03-24T11:40:32+00:00",
+    "rounds": [
+        {
+            "name": "Qualification",
+            "starts_at": "2026-05-15 09:00",
+            "ends_at": null
+        },
+        {
+            "name": "Finals",
+            "starts_at": "2026-05-16 12:00",
+            "ends_at": null
+        }
+    ]
+}

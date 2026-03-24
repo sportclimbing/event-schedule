@@ -1,0 +1,16 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+use SportClimbing\EventDetails\Command\UpdateDatabaseCommand;
+use SportClimbing\EventDetails\Infrastructure\Container\SymfonyServiceContainerFactory;
+use Symfony\Component\Console\Application;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$container = (new SymfonyServiceContainerFactory())->create();
+
+$application = new Application('World Climbing Schedule Generator');
+$application->addCommand(new UpdateDatabaseCommand($container));
+$application->setDefaultCommand(UpdateDatabaseCommand::NAME, true);
+
+exit($application->run());

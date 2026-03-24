@@ -1,0 +1,87 @@
+{
+    "format_version": 1,
+    "parser_cache_version": "v1",
+    "updated_at": "2026-03-24T11:37:14+00:00",
+    "rounds": [
+        {
+            "name": "Women's and Men's Lead qualifications Under 17",
+            "starts_at": "2026-07-18 09:00",
+            "ends_at": "2026-07-18 18:30"
+        },
+        {
+            "name": "Women's and Men's Lead qualifications Under 19",
+            "starts_at": "2026-07-19 09:00",
+            "ends_at": "2026-07-19 19:00"
+        },
+        {
+            "name": "Women's and Men's Lead semi-finals Under 17",
+            "starts_at": "2026-07-20 09:00",
+            "ends_at": "2026-07-20 11:15"
+        },
+        {
+            "name": "Women's and Men's Lead semi-finals Under 19",
+            "starts_at": "2026-07-20 14:00",
+            "ends_at": "2026-07-20 16:15"
+        },
+        {
+            "name": "Women's and Men's Lead finals Under 17",
+            "starts_at": "2026-07-20 20:00",
+            "ends_at": "2026-07-20 21:00"
+        },
+        {
+            "name": "Women's and Men's Lead finals Under 19",
+            "starts_at": "2026-07-20 21:00",
+            "ends_at": "2026-07-20 22:00"
+        },
+        {
+            "name": "Women's and Men's Speed qualification Under 17",
+            "starts_at": "2026-07-21 11:00",
+            "ends_at": "2026-07-21 13:00"
+        },
+        {
+            "name": "Women's and Men's Speed qualification Under 19",
+            "starts_at": "2026-07-21 17:15",
+            "ends_at": "2026-07-21 19:30"
+        },
+        {
+            "name": "Women's and Men's Speed finals Under 17",
+            "starts_at": "2026-07-21 20:30",
+            "ends_at": "2026-07-21 21:30"
+        },
+        {
+            "name": "Women's and Men's Speed finals Under 19",
+            "starts_at": "2026-07-21 21:30",
+            "ends_at": "2026-07-21 22:30"
+        },
+        {
+            "name": "Women's and Men's Boulder qualifications Under 17",
+            "starts_at": "2026-07-22 10:00",
+            "ends_at": "2026-07-22 18:15"
+        },
+        {
+            "name": "Women's and Men's Boulder qualifications Under 19",
+            "starts_at": "2026-07-23 10:00",
+            "ends_at": "2026-07-23 19:30"
+        },
+        {
+            "name": "Women's and Men's Boulder semi-finals Under 17",
+            "starts_at": "2026-07-24 09:00",
+            "ends_at": "2026-07-24 12:00"
+        },
+        {
+            "name": "Women's and Men's Boulder finals Under 17",
+            "starts_at": "2026-07-24 18:00",
+            "ends_at": "2026-07-24 20:00"
+        },
+        {
+            "name": "Women's and Men's Boulder semi-finals Under 19",
+            "starts_at": "2026-07-25 09:00",
+            "ends_at": "2026-07-25 12:00"
+        },
+        {
+            "name": "Women's and Men's Boulder finals Under 19",
+            "starts_at": "2026-07-25 18:00",
+            "ends_at": "2026-07-25 20:00"
+        }
+    ]
+}

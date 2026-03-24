@@ -1,0 +1,41 @@
+{
+    "format_version": 1,
+    "parser_cache_version": "v1",
+    "updated_at": "2026-03-24T12:53:23+00:00",
+    "rounds": [
+        {
+            "name": "Women's Boulder Qualification",
+            "starts_at": "2026-05-22 09:00",
+            "ends_at": "2026-05-22 13:30"
+        },
+        {
+            "name": "Men's Boulder Qualification",
+            "starts_at": "2026-05-22 15:30",
+            "ends_at": "2026-05-22 21:00"
+        },
+        {
+            "name": "Women's Boulder Semi-final",
+            "starts_at": "2026-05-23 10:00",
+            "ends_at": "2026-05-23 12:30"
+        },
+        {
+            "name": "Women's Boulder Final",
+            "starts_at": "2026-05-23 18:00",
+            "ends_at": null
+        },
+        {
+            "name": "Men's Boulder Semi-final",
+            "starts_at": "2026-05-24 10:00",
+            "ends_at": "2026-05-24 12:30"
+        },
+        {
+            "name": "Men's Boulder Final",
+            "starts_at": "2026-05-24 18:00",
+            "ends_at": null
+        }
+    ],
+    "ticket_purchase_url": "https:\/\/shop.bernexpo.ch\/section\/world-climbing-series-bern-muv-festival-mdam",
+    "ticket_price": null,
+    "ticket_currency": null,
+    "ticket_summary": "Tickets are required for all competition days; buy online at the event shop URL. Registered World Climbing athletes and team officials do not need to purchase tickets. Accreditation is required for all indoor rounds."
+}

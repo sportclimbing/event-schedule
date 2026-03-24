@@ -1,0 +1,16 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  SportClimbing\EventDetails\Domain\Event\Service\IfscEventInfoProvider:
+    public: true
+
+  SportClimbing\EventDetails\Domain\Event\Port\EventInfoProviderInterface:
+    alias: SportClimbing\EventDetails\Domain\Event\Service\IfscEventInfoProvider
+    public: true
+
+  SportClimbing\EventDetails\Domain\Schedule\IfscScheduleFactory: ~
+
+  SportClimbing\EventDetails\Domain\Event\Service\RecentEventsScheduleSyncService:
+    public: true

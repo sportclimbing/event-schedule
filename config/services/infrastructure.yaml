@@ -1,0 +1,46 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  GuzzleHttp\ClientInterface:
+    class: GuzzleHttp\Client
+    arguments:
+      - base_uri: 'https://ifsc.results.info'
+        headers:
+          Accept: 'application/json'
+        timeout: 15
+
+  SportClimbing\EventDetails\Infrastructure\IFSC\IfscApiSessionAuthenticator: ~
+
+  SportClimbing\EventDetails\Infrastructure\IFSC\IfscApiClientFactory: ~
+
+  SportClimbing\EventDetails\Infrastructure\IFSC\GuzzleIfscApiClient:
+    factory: ['@SportClimbing\EventDetails\Infrastructure\IFSC\IfscApiClientFactory', 'create']
+
+  SportClimbing\EventDetails\Domain\Event\Port\IfscApiClientInterface:
+    alias: SportClimbing\EventDetails\Infrastructure\IFSC\GuzzleIfscApiClient
+
+  SportClimbing\EventDetails\Infrastructure\IFSC\IfscRecentLeagueProvider: ~
+
+  SportClimbing\EventDetails\Domain\Event\Port\RecentLeagueProviderInterface:
+    alias: SportClimbing\EventDetails\Infrastructure\IFSC\IfscRecentLeagueProvider
+
+  SportClimbing\EventDetails\Infrastructure\Schedule\Pdf\InfoSheetPdfDownloader: ~
+
+  SportClimbing\EventDetails\Domain\Event\Port\InfoSheetPdfDownloaderInterface:
+    alias: SportClimbing\EventDetails\Infrastructure\Schedule\Pdf\InfoSheetPdfDownloader
+
+  SportClimbing\EventDetails\Infrastructure\Event\Cache\EventScheduleJsonCache: ~
+
+  SportClimbing\EventDetails\Domain\Event\Port\EventScheduleCacheInterface:
+    alias: SportClimbing\EventDetails\Infrastructure\Event\Cache\EventScheduleJsonCache
+
+  SportClimbing\EventDetails\Infrastructure\Schedule\Cache\InfoSheetScheduleCache: ~
+
+  SportClimbing\EventDetails\Infrastructure\Schedule\OpenAi\OpenAiInfoSheetClient: ~
+
+  SportClimbing\EventDetails\Infrastructure\Schedule\InfoSheetChatGptScheduleParser: ~
+
+  SportClimbing\EventDetails\Domain\Schedule\Port\InfoSheetScheduleParserInterface:
+    alias: SportClimbing\EventDetails\Infrastructure\Schedule\InfoSheetChatGptScheduleParser
