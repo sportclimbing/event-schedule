@@ -18,6 +18,7 @@ use SportClimbing\EventDetails\Domain\Event\Port\InfoSheetPdfDownloaderInterface
 use SportClimbing\EventDetails\Domain\Event\Port\RecentLeagueProviderInterface;
 use SportClimbing\EventDetails\Domain\Event\Port\Dto\DownloadedPdf;
 use SportClimbing\EventDetails\Domain\Event\Service\RecentEventsScheduleSyncService;
+use SportClimbing\EventDetails\Domain\Schedule\Exception\InfoSheetScheduleParserException;
 use SportClimbing\EventDetails\Domain\Schedule\IfscSchedule;
 use SportClimbing\EventDetails\Domain\Schedule\InfoSheetParseResult;
 use SportClimbing\EventDetails\Domain\Schedule\InfoSheetTicketInfo;
@@ -256,6 +257,33 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
         self::assertSame([], $result[0]['schedule']);
         self::assertSame('OpenAI HTTP 500', $result[0]['schedule_error']);
         self::assertSame($result, $cacheWriter->savedEvents);
+    }
+
+    public function testSyncThrowsWhenScheduleParserReportsChatGptFailure(): void
+    {
+        $eventInfoProvider = new FakeEventInfoProvider([
+            $this->eventInfo('https://ifsc.results.info/events/40/infosheet'),
+        ]);
+        $scheduleParser = new FakeInfoSheetScheduleParser(
+            cachedSchedulesByUrl: [],
+            parsedSchedulesByUrl: [],
+            parseExceptionsByUrl: [
+                'https://ifsc.results.info/events/40/infosheet' => new InfoSheetScheduleParserException('OpenAI HTTP 500'),
+            ],
+        );
+        $cacheWriter = new RecordingEventScheduleCache();
+
+        $service = new RecentEventsScheduleSyncService(
+            recentLeagueProvider: new FakeRecentLeagueProvider([457]),
+            eventInfoProvider: $eventInfoProvider,
+            infoSheetPdfDownloader: new FakeInfoSheetPdfDownloader(),
+            infoSheetScheduleParser: $scheduleParser,
+            eventScheduleCache: $cacheWriter,
+        );
+
+        $this->expectException(InfoSheetScheduleParserException::class);
+        $this->expectExceptionMessage('OpenAI HTTP 500');
+        $service->sync(2026);
     }
 
     public function testSyncBuildsLocationObjectFromLocationCountrySuffix(): void

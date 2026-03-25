@@ -234,6 +234,63 @@ final class OpenAiInfoSheetClientTest extends TestCase
         self::assertNull($payload['ticket_currency']);
     }
 
+    public function testExtractSchedulePayloadWithPdfPathDoesNotUseTextFallbackStrategy(): void
+    {
+        $this->setEnv('OPENAI_API_KEY', 'test-key');
+        $this->setEnv('OPENAI_HTTP_MAX_RETRIES', '0');
+        $this->setEnv('OPENAI_HTTP_RETRY_BACKOFF_MS', '0');
+
+        $handler = HandlerStack::create(new MockHandler([
+            new Response(
+                500,
+                ['x-request-id' => 'req_test_full_schema'],
+                (string) json_encode([
+                    'error' => [
+                        'message' => 'The server had an error processing your request.',
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ),
+            new Response(
+                500,
+                ['x-request-id' => 'req_test_pdf_data'],
+                (string) json_encode([
+                    'error' => [
+                        'message' => 'The server had an error processing your request.',
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ),
+            new Response(
+                500,
+                ['x-request-id' => 'req_test_rounds_only'],
+                (string) json_encode([
+                    'error' => [
+                        'message' => 'The server had an error processing your request.',
+                    ],
+                ], JSON_THROW_ON_ERROR),
+            ),
+        ]));
+
+        $pdfPath = tempnam(sys_get_temp_dir(), 'ifsc-test-');
+        self::assertNotFalse($pdfPath);
+
+        file_put_contents($pdfPath, "%PDF-1.4\n%test");
+
+        $client = new OpenAiInfoSheetClient(new Client(['handler' => $handler]));
+
+        try {
+            $client->extractSchedulePayload($this->eventInfo(), 'file_123', $pdfPath);
+            self::fail('Expected extractSchedulePayload to throw on repeated HTTP 500.');
+        } catch (InfoSheetChatGptScheduleParserException $exception) {
+            self::assertStringContainsString('after 3 attempt(s)', $exception->getMessage());
+            self::assertStringContainsString('parse_strategy=full_schema', $exception->getMessage());
+            self::assertStringContainsString('parse_strategy=rounds_only_pdf_data_fallback', $exception->getMessage());
+            self::assertStringContainsString('parse_strategy=rounds_only_fallback', $exception->getMessage());
+            self::assertStringNotContainsString('parse_strategy=rounds_only_text_fallback', $exception->getMessage());
+        } finally {
+            @unlink($pdfPath);
+        }
+    }
+
     private function eventInfo(): EventInfo
     {
         return new EventInfo(

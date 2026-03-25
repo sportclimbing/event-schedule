@@ -15,6 +15,7 @@ use SportClimbing\EventDetails\Domain\Event\Port\InfoSheetPdfDownloaderInterface
 use SportClimbing\EventDetails\Domain\Event\Port\RecentLeagueProviderInterface;
 use SportClimbing\EventDetails\Domain\Schedule\IfscSchedule;
 use SportClimbing\EventDetails\Domain\Schedule\InfoSheetTicketInfo;
+use SportClimbing\EventDetails\Domain\Schedule\Exception\InfoSheetScheduleParserException;
 use SportClimbing\EventDetails\Domain\Schedule\Port\InfoSheetScheduleParserInterface;
 use Throwable;
 
@@ -89,6 +90,8 @@ final readonly class RecentEventsScheduleSyncService
                 null,
                 $parsedResult->ticketInfo,
             ];
+        } catch (InfoSheetScheduleParserException $exception) {
+            throw $exception;
         } catch (Throwable $exception) {
             return [[], $exception->getMessage(), null];
         }

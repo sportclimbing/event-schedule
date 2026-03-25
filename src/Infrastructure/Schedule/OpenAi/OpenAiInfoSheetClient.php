@@ -14,7 +14,6 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\RequestOptions;
 use JsonException;
 use Psr\Http\Message\ResponseInterface;
-use Smalot\PdfParser\Parser as PdfParser;
 use SportClimbing\EventDetails\Domain\Event\Entity\EventInfo;
 use SportClimbing\EventDetails\Infrastructure\Schedule\Exception\InfoSheetChatGptScheduleParserException;
 use Throwable;
@@ -32,7 +31,6 @@ final readonly class OpenAiInfoSheetClient
     private const int DEFAULT_RETRY_BACKOFF_MILLISECONDS = 500;
     private const int MAX_RETRY_BACKOFF_MILLISECONDS = 10_000;
     private const int PDF_SIGNATURE_LENGTH = 5;
-    private const int MAX_EXTRACTED_TEXT_CHARS = 120_000;
 
     private string $openAiApiKey;
     private string $model;
@@ -96,20 +94,6 @@ final readonly class OpenAiInfoSheetClient
         ];
 
         if (is_string($pdfPath) && trim($pdfPath) !== '') {
-            try {
-                $strategies[] = [
-                    'name' => 'rounds_only_text_fallback',
-                    'input_source' => 'pdf_text',
-                    'schema' => $this->roundsOnlyResponseSchema(),
-                    'strict' => false,
-                    'content_items' => [
-                        $this->buildPromptInputContent($this->buildRoundsOnlyTextPrompt($event, $pdfPath)),
-                    ],
-                ];
-            } catch (InfoSheetChatGptScheduleParserException) {
-                // Ignore text fallback when PDF text extraction fails.
-            }
-
             try {
                 $strategies[] = [
                     'name' => 'rounds_only_pdf_data_fallback',
@@ -405,46 +389,6 @@ final readonly class OpenAiInfoSheetClient
             $event->localEndDate,
             $event->timeZone->getName(),
             $event->timeZone->getName(),
-        );
-    }
-
-    /**
-     * Parse fallback using locally extracted PDF text, avoiding file-input handling in the API request.
-     */
-    private function buildRoundsOnlyTextPrompt(EventInfo $event, string $pdfPath): string
-    {
-        $extractedText = $this->extractPdfTextForPrompt($pdfPath);
-
-        return sprintf(
-            <<<PROMPT
-            Parse the extracted text of an IFSC infosheet PDF and extract the competition round schedule only.
-
-            Event context:
-            - Event: %s
-            - Local date range: %s to %s
-            - Timezone: %s
-
-            Output rules:
-            - Return only official competition rounds (Qualification, Semi-Final, Final, etc.).
-            - Exclude non-round activities (registration, technical meeting, training, practice, warm-up, isolation opening/closing, ceremony).
-            - Keep round names close to the infosheet wording.
-            - Every row must include starts_at.
-            - Use local venue time in timezone %s.
-            - Use YYYY-MM-DD HH:MM format for starts_at and ends_at.
-            - Set ends_at to null when no end time is provided.
-            - If a detail is ambiguous, choose the most conservative interpretation.
-
-            Extracted PDF text:
-            --- BEGIN PDF TEXT ---
-            %s
-            --- END PDF TEXT ---
-            PROMPT,
-            $event->eventName,
-            $event->localStartDate,
-            $event->localEndDate,
-            $event->timeZone->getName(),
-            $event->timeZone->getName(),
-            $extractedText,
         );
     }
 
@@ -773,54 +717,6 @@ final readonly class OpenAiInfoSheetClient
             'filename' => $this->asPdfFilename($pdfPath),
             'file_data' => sprintf('data:application/pdf;base64,%s', base64_encode($pdfData)),
         ];
-    }
-
-    /**
-     * @throws InfoSheetChatGptScheduleParserException
-     */
-    private function extractPdfTextForPrompt(string $pdfPath): string
-    {
-        $this->readPdfDiagnostics($pdfPath);
-
-        try {
-            $pdf = (new PdfParser())->parseFile($pdfPath);
-            $text = $pdf->getText();
-        } catch (Throwable $exception) {
-            throw new InfoSheetChatGptScheduleParserException(
-                sprintf(
-                    'Unable to extract text from PDF for parse fallback (%s): %s',
-                    $this->formatContext([
-                        'step' => 'parse_schedule',
-                        'parse_strategy' => 'rounds_only_text_fallback',
-                        'pdf_path' => $pdfPath,
-                    ]),
-                    $exception->getMessage(),
-                ),
-                0,
-                $exception,
-            );
-        }
-
-        $text = trim(preg_replace('/[ \t]+/', ' ', (string) $text) ?? '');
-
-        if ($text === '') {
-            throw new InfoSheetChatGptScheduleParserException(
-                sprintf(
-                    'Extracted PDF text is empty for parse fallback (%s)',
-                    $this->formatContext([
-                        'step' => 'parse_schedule',
-                        'parse_strategy' => 'rounds_only_text_fallback',
-                        'pdf_path' => $pdfPath,
-                    ]),
-                ),
-            );
-        }
-
-        if (strlen($text) > self::MAX_EXTRACTED_TEXT_CHARS) {
-            $text = substr($text, 0, self::MAX_EXTRACTED_TEXT_CHARS);
-        }
-
-        return $text;
     }
 
     /**

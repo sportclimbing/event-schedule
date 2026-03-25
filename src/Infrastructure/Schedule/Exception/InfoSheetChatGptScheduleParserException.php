@@ -7,8 +7,8 @@
  */
 namespace SportClimbing\EventDetails\Infrastructure\Schedule\Exception;
 
-use RuntimeException;
+use SportClimbing\EventDetails\Domain\Schedule\Exception\InfoSheetScheduleParserException;
 
-final class InfoSheetChatGptScheduleParserException extends RuntimeException
+final class InfoSheetChatGptScheduleParserException extends InfoSheetScheduleParserException
 {
 }

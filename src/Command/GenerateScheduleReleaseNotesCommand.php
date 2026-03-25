@@ -21,6 +21,11 @@ final class GenerateScheduleReleaseNotesCommand extends Command
 {
     public const string NAME = 'sportclimbing:generate-schedule-release-notes';
 
+    public function __construct()
+    {
+        parent::__construct(self::NAME);
+    }
+
     protected function configure(): void
     {
         $this

@@ -14,6 +14,7 @@ use RecursiveIteratorIterator;
 use RuntimeException;
 use SportClimbing\EventDetails\Command\UpdateDatabaseCommand;
 use SportClimbing\EventDetails\Domain\Event\Service\RecentEventsScheduleSyncService;
+use SportClimbing\EventDetails\Domain\Schedule\Exception\InfoSheetScheduleParserException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -149,6 +150,21 @@ final class UpdateDatabaseCommandTest extends TestCase
         self::assertStringContainsString('--season option is required', $tester->getDisplay());
     }
 
+    public function testExecuteReturnsFailureWhenSyncServiceThrowsParserException(): void
+    {
+        $syncService = new FakeSyncServiceForCommand(
+            exceptionToThrow: new InfoSheetScheduleParserException('OpenAI HTTP 500'),
+        );
+        $command = new UpdateDatabaseCommand(new FakeContainerForCommand($syncService));
+        $tester = new CommandTester($command);
+
+        $exitCode = $tester->execute(['--season' => '2027']);
+
+        self::assertSame(Command::FAILURE, $exitCode);
+        self::assertTrue($syncService->called);
+        self::assertStringContainsString('OpenAI HTTP 500', $tester->getDisplay());
+    }
+
     private function removeDirectory(string $path): void
     {
         if (!is_dir($path)) {
@@ -201,6 +217,7 @@ final class FakeSyncServiceForCommand
     /** @param array<array<string,mixed>> $eventsToReturn */
     public function __construct(
         private array $eventsToReturn = [],
+        private ?\Throwable $exceptionToThrow = null,
     ) {
     }
 
@@ -221,6 +238,10 @@ final class FakeSyncServiceForCommand
         $this->lastForceRescan = $forceRescan;
         $this->lastSeasonYear = $seasonYear;
         $this->lastLeagueSeasonIds = $leagueSeasonIds;
+
+        if ($this->exceptionToThrow !== null) {
+            throw $this->exceptionToThrow;
+        }
 
         return $this->eventsToReturn;
     }

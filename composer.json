@@ -15,8 +15,7 @@
     "symfony/console": "8.0.7",
     "symfony/dependency-injection": "^8.0",
     "symfony/yaml": "^8.0",
-    "ext-curl": "*",
-    "smalot/pdfparser": "^2.12"
+    "ext-curl": "*"
   },
   "require-dev": {
     "phpunit/phpunit": "^13.0"
