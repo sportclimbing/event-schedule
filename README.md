@@ -1,5 +1,7 @@
 # IFSC Event Details
 
+[![Generate Schedule Release](https://github.com/sportclimbing/event-schedule/actions/workflows/generate-schedule-release.yml/badge.svg)](https://github.com/sportclimbing/event-schedule/actions/workflows/generate-schedule-release.yml)
+
 `sportclimbing/event-details` generates normalized IFSC event data with parsed infosheet schedules and ticket details.
 
 It fetches events from IFSC Results API, downloads infosheet PDFs, extracts round schedules with OpenAI, and outputs a single JSON payload:
