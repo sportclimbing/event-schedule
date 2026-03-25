@@ -341,12 +341,14 @@ final readonly class OpenAiInfoSheetClient
     {
         return sprintf(
             <<<PROMPT
-            Parse the attached IFSC infosheet PDF and extract the competition round schedule.
+            Parse the attached IFSC infosheet PDF and extract the competition round schedule/programme.
+            Schedule might be split on multiple pages.
 
             Event context:
             - Event: %s
             - Local date range: %s to %s
             - Timezone: %s
+            - Discipline: %s
 
             Output rules:
             - Return only official competition rounds (Qualification, Semi-Final, Final, etc.).
@@ -354,6 +356,8 @@ final readonly class OpenAiInfoSheetClient
             - Every row must include starts_at.
             - Use local venue time in timezone %s.
             - Use YYYY-MM-DD HH:MM format for starts_at and ends_at.
+              - If it says "12:00 – 13:00" for example, it means "starts_at" is 12:00 and "ends_at" is 13:00.
+              - Sometimes it might say "18.30" for example when it means "18:30"
             - Set ends_at to null when no end time is provided.
             - Also extract ticket info when available:
               - ticket_purchase_url: URL where tickets can be purchased.
@@ -372,13 +376,16 @@ final readonly class OpenAiInfoSheetClient
              - They all should include gender (eg "Men's", "Women's" or "Men's & Women's"), followed by the discipline ("Boulder", "Lead", or "Speed"), followed by "Qualification", "Semi-Final" or "Final".
                - Some valid examples: "Women's Boulder Final", "Men's & Women's Lead Qualification", "Men's Speed Semi-Final"
              - If a round name can't be found, take your best guess keeping the above format. Never keep it empty/null
-             - If gender is not specified or it says "Mixed", assume it's "Men's & Women's" 
+             - If gender is not specified or it says "Mixed", assume it's "Men's & Women's"
+             
+            No mistakes! 
             PROMPT,
             $event->eventName,
             $event->localStartDate,
             $event->localEndDate,
             $event->timeZone->getName(),
             $event->timeZone->getName(),
+            implode(', ', $event->disciplines),
         );
     }
 
