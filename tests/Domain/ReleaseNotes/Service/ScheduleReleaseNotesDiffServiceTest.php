@@ -58,4 +58,34 @@ final class ScheduleReleaseNotesDiffServiceTest extends TestCase
         self::assertSame(0, $diff->removedCount());
         self::assertSame(0, $diff->changedCount());
     }
+
+    public function testDiffFlattensNestedChangesToFieldPathAndRawValues(): void
+    {
+        $service = new ScheduleReleaseNotesDiffService();
+
+        $diff = $service->diff(
+            previousEvents: [[
+                'event_id' => 1,
+                'event_name' => 'A',
+                'schedule' => [[
+                    'name' => 'Final',
+                    'starts_at' => '2026-06-20 19:00',
+                ]],
+            ]],
+            currentEvents: [[
+                'event_id' => 1,
+                'event_name' => 'A',
+                'schedule' => [[
+                    'name' => 'Final',
+                    'starts_at' => '2026-06-20 20:00',
+                ]],
+            ]],
+        );
+
+        self::assertSame(1, $diff->changedCount());
+        self::assertCount(1, $diff->changedEvents[0]->changes);
+        self::assertSame('schedule[0].starts at', $diff->changedEvents[0]->changes[0]->field);
+        self::assertSame('2026-06-20 19:00', $diff->changedEvents[0]->changes[0]->oldValue);
+        self::assertSame('2026-06-20 20:00', $diff->changedEvents[0]->changes[0]->newValue);
+    }
 }

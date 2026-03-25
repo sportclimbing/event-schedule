@@ -107,9 +107,7 @@ final class MarkdownScheduleReleaseNotesRenderer
         }
 
         if (is_array($value) || is_object($value)) {
-            $encoded = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-            return is_string($encoded) ? $encoded : '[unserializable]';
+            return '[complex value]';
         }
 
         return '[unsupported]';

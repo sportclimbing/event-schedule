@@ -119,6 +119,50 @@ final class GenerateScheduleReleaseNotesCommandTest extends TestCase
         $this->removeDirectory($workDir);
     }
 
+    public function testExecuteOutputsNestedFieldPathAndRawValuesInsteadOfJsonBlob(): void
+    {
+        $workDir = sprintf('%s/ifsc-release-notes-%s', sys_get_temp_dir(), uniqid('', true));
+        $previousPath = "{$workDir}/previous.json";
+        $currentPath = "{$workDir}/current.json";
+
+        $this->writeJson($previousPath, [
+            'events' => [[
+                'event_id' => 1,
+                'event_name' => 'A',
+                'schedule' => [[
+                    'name' => 'Final',
+                    'starts_at' => '2026-06-20 19:00',
+                ]],
+            ]],
+        ]);
+        $this->writeJson($currentPath, [
+            'events' => [[
+                'event_id' => 1,
+                'event_name' => 'A',
+                'schedule' => [[
+                    'name' => 'Final',
+                    'starts_at' => '2026-06-20 20:00',
+                ]],
+            ]],
+        ]);
+
+        $tester = new CommandTester(new GenerateScheduleReleaseNotesCommand());
+        $exitCode = $tester->execute([
+            'previous-path' => $previousPath,
+            'current-path' => $currentPath,
+        ]);
+        $display = $tester->getDisplay();
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString(
+            '| 1 | A | schedule[0].starts at | 2026-06-20 19:00 | 2026-06-20 20:00 |',
+            $display,
+        );
+        self::assertStringNotContainsString('{"name":"Final"', $display);
+
+        $this->removeDirectory($workDir);
+    }
+
     public function testExecuteFailsWhenCurrentFileDoesNotExist(): void
     {
         $workDir = sprintf('%s/ifsc-release-notes-%s', sys_get_temp_dir(), uniqid('', true));

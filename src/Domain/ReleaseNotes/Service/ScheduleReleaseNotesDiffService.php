@@ -141,22 +141,17 @@ final class ScheduleReleaseNotesDiffService
             array_keys($oldEvent),
             array_keys($newEvent),
         )));
-        sort($keys);
+        $this->sortKeys($keys);
 
         /** @var ReleaseNotesFieldChange[] $changes */
         $changes = [];
 
         foreach ($keys as $key) {
-            $oldValue = $oldEvent[$key] ?? null;
-            $newValue = $newEvent[$key] ?? null;
+            $oldValue = array_key_exists($key, $oldEvent) ? $oldEvent[$key] : null;
+            $newValue = array_key_exists($key, $newEvent) ? $newEvent[$key] : null;
+            $fieldPath = $this->appendFieldPath('', $key);
 
-            if (!$this->valuesEqual($oldValue, $newValue)) {
-                $changes[] = new ReleaseNotesFieldChange(
-                    field: str_replace('_', ' ', $key),
-                    oldValue: $oldValue,
-                    newValue: $newValue,
-                );
-            }
+            $this->appendChangedFields($changes, $fieldPath, $oldValue, $newValue);
         }
 
         if ($changes !== []) {
@@ -170,6 +165,84 @@ final class ScheduleReleaseNotesDiffService
                 newValue: $newEvent,
             ),
         ];
+    }
+
+    /**
+     * @param ReleaseNotesFieldChange[] $changes
+     */
+    private function appendChangedFields(array &$changes, string $fieldPath, mixed $oldValue, mixed $newValue): void
+    {
+        if (is_array($oldValue) || is_array($newValue)) {
+            $oldArray = is_array($oldValue) ? $oldValue : [];
+            $newArray = is_array($newValue) ? $newValue : [];
+            $keys = array_values(array_unique(array_merge(array_keys($oldArray), array_keys($newArray))));
+            $this->sortKeys($keys);
+
+            if ($keys === []) {
+                if (!$this->valuesEqual($oldValue, $newValue)) {
+                    $changes[] = new ReleaseNotesFieldChange(
+                        field: $fieldPath === '' ? 'content' : $fieldPath,
+                        oldValue: $oldValue,
+                        newValue: $newValue,
+                    );
+                }
+
+                return;
+            }
+
+            foreach ($keys as $key) {
+                $childPath = $this->appendFieldPath($fieldPath, $key);
+                $childOldValue = array_key_exists($key, $oldArray) ? $oldArray[$key] : null;
+                $childNewValue = array_key_exists($key, $newArray) ? $newArray[$key] : null;
+                $this->appendChangedFields($changes, $childPath, $childOldValue, $childNewValue);
+            }
+
+            return;
+        }
+
+        if (!$this->valuesEqual($oldValue, $newValue)) {
+            $changes[] = new ReleaseNotesFieldChange(
+                field: $fieldPath === '' ? 'content' : $fieldPath,
+                oldValue: $oldValue,
+                newValue: $newValue,
+            );
+        }
+    }
+
+    /**
+     * @param array<int|string> $keys
+     */
+    private function sortKeys(array &$keys): void
+    {
+        usort(
+            $keys,
+            static function (int|string $left, int|string $right): int {
+                if (is_int($left) && is_int($right)) {
+                    return $left <=> $right;
+                }
+
+                if (is_int($left)) {
+                    return -1;
+                }
+
+                if (is_int($right)) {
+                    return 1;
+                }
+
+                return strcmp($left, $right);
+            },
+        );
+    }
+
+    private function appendFieldPath(string $currentPath, int|string $key): string
+    {
+        if (is_int($key)) {
+            return $currentPath === '' ? "[{$key}]" : "{$currentPath}[{$key}]";
+        }
+
+        $segment = str_replace('_', ' ', $key);
+
+        return $currentPath === '' ? $segment : "{$currentPath}.{$segment}";
     }
 
     private function valuesEqual(mixed $left, mixed $right): bool

@@ -45,4 +45,27 @@ final class MarkdownScheduleReleaseNotesRendererTest extends TestCase
         self::assertStringContainsString('## Changed Events', $markdown);
         self::assertStringContainsString('| 1 | A Updated | event name | A | A Updated |', $markdown);
     }
+
+    public function testRenderUsesComplexValuePlaceholderInsteadOfJson(): void
+    {
+        $renderer = new MarkdownScheduleReleaseNotesRenderer();
+        $diff = new ScheduleReleaseNotesDiff(
+            previousEventsCount: 1,
+            currentEventsCount: 1,
+            addedEvents: [],
+            removedEvents: [],
+            changedEvents: [new ReleaseNotesChangedEvent(
+                eventId: '1',
+                eventName: 'A',
+                changes: [
+                    new ReleaseNotesFieldChange('schedule', [['name' => 'Final']], [['name' => 'Semi']]),
+                ],
+            )],
+        );
+
+        $markdown = $renderer->render($diff, '/tmp/previous.json', '/tmp/current.json');
+
+        self::assertStringContainsString('| 1 | A | schedule | [complex value] | [complex value] |', $markdown);
+        self::assertStringNotContainsString('{"name"', $markdown);
+    }
 }
