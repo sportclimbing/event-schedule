@@ -50,7 +50,9 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: .cache/infosheet
-          key: infosheet-cache-${{ steps.season.outputs.value }}
+          key: infosheet-cache-${{ steps.season.outputs.value }}-${{ github.run_id }}
+          restore-keys: |
+            infosheet-cache-${{ steps.season.outputs.value }}-
 
       - name: "Generate schedule JSON"
         env:
@@ -69,7 +71,7 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: .cache/infosheet
-          key: infosheet-cache-${{ steps.season.outputs.value }}
+          key: ${{ steps.infosheet_cache_restore.outputs.cache-primary-key }}
 
       - name: "Download previous release JSON"
         id: previous
@@ -131,8 +133,8 @@ jobs:
         if: steps.compare.outputs.changed == 'true'
         id: tag
         run: |
-          timestamp="$(date -u +%Y%m%d%H%M%S)"
-          echo "value=schedule-${{ steps.season.outputs.value }}-${timestamp}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+          echo "value=$(date +'%Y/%m/%d, %H:%M') Release" >> $GITHUB_OUTPUT
 
       - name: "Create release"
         if: steps.compare.outputs.changed == 'true'
