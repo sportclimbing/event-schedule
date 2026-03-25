@@ -3,6 +3,30 @@ services:
     autowire: true
     autoconfigure: true
 
+  Symfony\Component\EventDispatcher\EventDispatcher:
+    calls:
+      - method: addListener
+        arguments:
+          - 'SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadedEvent'
+          - ['@SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener', 'onInfoSheetPdfDownloaded']
+      - method: addListener
+        arguments:
+          - 'SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadFailedEvent'
+          - ['@SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener', 'onInfoSheetPdfDownloadFailed']
+      - method: addListener
+        arguments:
+          - 'SportClimbing\EventDetails\Infrastructure\Observability\Event\OpenAiApiRequestSucceededEvent'
+          - ['@SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener', 'onOpenAiApiRequestSucceeded']
+      - method: addListener
+        arguments:
+          - 'SportClimbing\EventDetails\Infrastructure\Observability\Event\OpenAiApiRequestFailedEvent'
+          - ['@SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener', 'onOpenAiApiRequestFailed']
+
+  Symfony\Contracts\EventDispatcher\EventDispatcherInterface:
+    alias: Symfony\Component\EventDispatcher\EventDispatcher
+
+  SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener: ~
+
   GuzzleHttp\ClientInterface:
     class: GuzzleHttp\Client
     arguments:

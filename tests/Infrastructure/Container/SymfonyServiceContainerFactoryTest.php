@@ -22,8 +22,11 @@ use SportClimbing\EventDetails\Infrastructure\IFSC\GuzzleIfscApiClient;
 use SportClimbing\EventDetails\Infrastructure\IFSC\IfscApiClientFactory;
 use SportClimbing\EventDetails\Infrastructure\IFSC\IfscRecentLeagueProvider;
 use SportClimbing\EventDetails\Infrastructure\IFSC\IfscApiSessionAuthenticator;
+use SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener;
 use SportClimbing\EventDetails\Infrastructure\Schedule\InfoSheetChatGptScheduleParser;
 use SportClimbing\EventDetails\Infrastructure\Schedule\Pdf\InfoSheetPdfDownloader;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final class SymfonyServiceContainerFactoryTest extends TestCase
 {
@@ -39,6 +42,8 @@ final class SymfonyServiceContainerFactoryTest extends TestCase
         self::assertTrue($container->hasDefinition(InfoSheetPdfDownloader::class));
         self::assertTrue($container->hasDefinition(EventScheduleJsonCache::class));
         self::assertTrue($container->hasDefinition(InfoSheetChatGptScheduleParser::class));
+        self::assertTrue($container->hasDefinition(StdoutObservabilityListener::class));
+        self::assertTrue($container->hasDefinition(EventDispatcher::class));
         self::assertTrue($container->hasDefinition(RecentEventsScheduleSyncService::class));
 
         self::assertTrue($container->hasAlias(EventInfoProviderInterface::class));
@@ -75,6 +80,12 @@ final class SymfonyServiceContainerFactoryTest extends TestCase
         self::assertSame(
             EventScheduleJsonCache::class,
             (string) $container->getAlias(EventScheduleCacheInterface::class),
+        );
+
+        self::assertTrue($container->hasAlias(EventDispatcherInterface::class));
+        self::assertSame(
+            EventDispatcher::class,
+            (string) $container->getAlias(EventDispatcherInterface::class),
         );
     }
 }

@@ -34,7 +34,7 @@ php bin/generate-schedule --season 2026 --outfile events-with-schedules.json
 Notes:
 
 - `--season` is required
-- if `--outfile` is omitted, JSON is written to stdout
+- `--outfile` is required
 - if no league flags are provided, all supported league season ids are included
   - world cups (`457`)
   - games (`318`)
@@ -43,9 +43,6 @@ Notes:
 Useful examples:
 
 ```bash
-# stdout
-php bin/generate-schedule --season 2026
-
 # write to file
 php bin/generate-schedule --season 2026 --outfile events-with-schedules.json
 

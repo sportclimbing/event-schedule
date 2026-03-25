@@ -15,7 +15,11 @@ use GuzzleHttp\RequestOptions;
 use JsonException;
 use Psr\Http\Message\ResponseInterface;
 use SportClimbing\EventDetails\Domain\Event\Entity\EventInfo;
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\OpenAiApiRequestFailedEvent;
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\OpenAiApiRequestSucceededEvent;
 use SportClimbing\EventDetails\Infrastructure\Schedule\Exception\InfoSheetChatGptScheduleParserException;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Throwable;
 
 final readonly class OpenAiInfoSheetClient
@@ -38,10 +42,13 @@ final readonly class OpenAiInfoSheetClient
     private int $connectTimeoutSeconds;
     private int $maxRetries;
     private int $retryBackoffMilliseconds;
+    private EventDispatcherInterface $eventDispatcher;
 
     public function __construct(
         private ClientInterface $httpClient,
+        ?EventDispatcherInterface $eventDispatcher = null,
     ) {
+        $this->eventDispatcher = $eventDispatcher ?? new EventDispatcher();
         $this->openAiApiKey = $this->readEnvironmentVariable('OPENAI_API_KEY');
         $model = $this->readEnvironmentVariable('OPENAI_MODEL');
         $this->model = $model !== '' ? $model : self::DEFAULT_MODEL;
@@ -932,20 +939,43 @@ final readonly class OpenAiInfoSheetClient
     private function requestWithRetry(string $method, string $uri, array $options): ResponseInterface
     {
         $options = $this->withTimeoutOptions($options);
-        $attempt = 0;
         $maxAttempts = max(1, $this->maxRetries + 1);
 
-        while (true) {
+        for ($attempt = 1; ; $attempt++) {
+            $startedAt = microtime(true);
+
             try {
-                return $this->httpClient->request(
+                $response = $this->httpClient->request(
                     method: $method,
                     uri: $uri,
                     options: $options,
                 );
-            } catch (GuzzleException $exception) {
-                $attempt++;
 
-                if ($attempt >= $maxAttempts || !$this->isRetriableException($exception)) {
+                $this->dispatchEvent(new OpenAiApiRequestSucceededEvent(
+                    method: $method,
+                    uri: $uri,
+                    attempt: $attempt,
+                    maxAttempts: $maxAttempts,
+                    statusCode: $response->getStatusCode(),
+                    durationMilliseconds: $this->elapsedMilliseconds($startedAt),
+                ));
+
+                return $response;
+            } catch (GuzzleException $exception) {
+                $willRetry = $attempt < $maxAttempts && $this->isRetriableException($exception);
+
+                $this->dispatchEvent(new OpenAiApiRequestFailedEvent(
+                    method: $method,
+                    uri: $uri,
+                    attempt: $attempt,
+                    maxAttempts: $maxAttempts,
+                    statusCode: $exception instanceof RequestException ? $exception->getResponse()?->getStatusCode() : null,
+                    durationMilliseconds: $this->elapsedMilliseconds($startedAt),
+                    willRetry: $willRetry,
+                    reason: $exception->getMessage(),
+                ));
+
+                if (!$willRetry) {
                     throw $exception;
                 }
 
@@ -956,6 +986,11 @@ final readonly class OpenAiInfoSheetClient
                 }
             }
         }
+    }
+
+    private function elapsedMilliseconds(float $startedAt): int
+    {
+        return (int) round((microtime(true) - $startedAt) * 1000);
     }
 
     /**
@@ -1043,6 +1078,14 @@ final readonly class OpenAiInfoSheetClient
         $seconds = max(0, $retryAtTimestamp - time());
 
         return $seconds * 1000;
+    }
+
+    private function dispatchEvent(object $event): void
+    {
+        try {
+            $this->eventDispatcher->dispatch($event);
+        } catch (Throwable) {
+        }
     }
 
     private function readEnvironmentVariable(string $name): string

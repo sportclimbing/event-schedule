@@ -10,6 +10,7 @@
 - Put external integrations and IO in `src/Infrastructure`.
 - Keep Symfony console wiring in `src/Command`.
 - Depend on ports/interfaces from domain to infrastructure, not the other way around.
+- Code in `src/Domain` should not depend on Symfony or any external libraries.
 
 ## Coding Conventions
 - Use `declare(strict_types=1);` in all PHP files except interfaces

@@ -2,6 +2,6 @@
 /.idea
 /.cache/infosheet/pdf/*.pdf
 /.cache/infosheet/results/*.json
-/.cache/manifest.json
+/.cache/infosheet/manifest.json
 /vendor
 /.phpunit.result.cache

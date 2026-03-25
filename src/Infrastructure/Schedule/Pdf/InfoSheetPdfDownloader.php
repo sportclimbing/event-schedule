@@ -13,16 +13,24 @@ use GuzzleHttp\RequestOptions;
 use RuntimeException;
 use SportClimbing\EventDetails\Domain\Event\Port\Dto\DownloadedPdf;
 use SportClimbing\EventDetails\Domain\Event\Port\InfoSheetPdfDownloaderInterface;
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadFailedEvent;
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadedEvent;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+use Throwable;
 
 final class InfoSheetPdfDownloader implements InfoSheetPdfDownloaderInterface
 {
     private const string DEFAULT_DOWNLOAD_DIR = '.cache/infosheet/pdf';
 
     private string $downloadDir;
+    private readonly EventDispatcherInterface $eventDispatcher;
 
     public function __construct(
         private readonly ClientInterface $httpClient,
+        ?EventDispatcherInterface $eventDispatcher = null,
     ) {
+        $this->eventDispatcher = $eventDispatcher ?? new EventDispatcher();
         $configuredDir = $_ENV['IFSC_INFOSHEET_PDF_CACHE_DIR'] ?? getenv('IFSC_INFOSHEET_PDF_CACHE_DIR');
         $resolvedDir = is_string($configuredDir) && trim($configuredDir) !== ''
             ? trim($configuredDir)
@@ -51,6 +59,12 @@ final class InfoSheetPdfDownloader implements InfoSheetPdfDownloaderInterface
                 ],
             ]);
         } catch (GuzzleException $exception) {
+            $this->dispatchEvent(new InfoSheetPdfDownloadFailedEvent(
+                url: $normalizedUrl,
+                statusCode: null,
+                reason: $exception->getMessage(),
+            ));
+
             throw new RuntimeException(
                 sprintf('Unable to download infosheet from "%s": %s', $normalizedUrl, $exception->getMessage()),
                 0,
@@ -59,6 +73,12 @@ final class InfoSheetPdfDownloader implements InfoSheetPdfDownloaderInterface
         }
 
         if ($response->getStatusCode() >= 400) {
+            $this->dispatchEvent(new InfoSheetPdfDownloadFailedEvent(
+                url: $normalizedUrl,
+                statusCode: $response->getStatusCode(),
+                reason: sprintf('HTTP %d', $response->getStatusCode()),
+            ));
+
             throw new RuntimeException(
                 sprintf(
                     'Unable to download infosheet from "%s": HTTP %d',
@@ -68,10 +88,21 @@ final class InfoSheetPdfDownloader implements InfoSheetPdfDownloaderInterface
             );
         }
 
-        return new DownloadedPdf(
+        $downloadedPdf = new DownloadedPdf(
             path: $targetPath,
             headers: $response->getHeaders(),
         );
+
+        $fileSize = @filesize($targetPath);
+
+        $this->dispatchEvent(new InfoSheetPdfDownloadedEvent(
+            url: $normalizedUrl,
+            path: $targetPath,
+            statusCode: $response->getStatusCode(),
+            sizeBytes: is_int($fileSize) ? $fileSize : null,
+        ));
+
+        return $downloadedPdf;
     }
 
     private function ensureDownloadDirectory(): void
@@ -108,5 +139,13 @@ final class InfoSheetPdfDownloader implements InfoSheetPdfDownloaderInterface
     {
         return str_starts_with($path, '/')
             || preg_match('~^[A-Za-z]:[\\\\/]~', $path) === 1;
+    }
+
+    private function dispatchEvent(object $event): void
+    {
+        try {
+            $this->eventDispatcher->dispatch($event);
+        } catch (Throwable) {
+        }
     }
 }

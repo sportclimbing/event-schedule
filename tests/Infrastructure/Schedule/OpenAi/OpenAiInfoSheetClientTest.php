@@ -18,8 +18,11 @@ use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\RequestOptions;
 use PHPUnit\Framework\TestCase;
 use SportClimbing\EventDetails\Domain\Event\Entity\EventInfo;
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\OpenAiApiRequestFailedEvent;
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\OpenAiApiRequestSucceededEvent;
 use SportClimbing\EventDetails\Infrastructure\Schedule\Exception\InfoSheetChatGptScheduleParserException;
 use SportClimbing\EventDetails\Infrastructure\Schedule\OpenAi\OpenAiInfoSheetClient;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final class OpenAiInfoSheetClientTest extends TestCase
 {
@@ -95,6 +98,79 @@ final class OpenAiInfoSheetClientTest extends TestCase
         self::assertSame('https://tickets.example.com/ifsc-event', $payload['ticket_purchase_url']);
         self::assertSame('35.00', $payload['ticket_price']);
         self::assertSame('EUR', $payload['ticket_currency']);
+    }
+
+    public function testExtractSchedulePayloadDispatchesOpenAiSuccessEvent(): void
+    {
+        $this->setEnv('OPENAI_API_KEY', 'test-key');
+        $events = [];
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(
+            OpenAiApiRequestSucceededEvent::class,
+            static function (OpenAiApiRequestSucceededEvent $event) use (&$events): void {
+                $events[] = $event;
+            },
+        );
+
+        $handler = HandlerStack::create(new MockHandler([
+            new Response(
+                200,
+                ['Content-Type' => 'application/json'],
+                (string) json_encode([
+                    'output' => [[
+                        'content' => [[
+                            'json' => [
+                                'rounds' => [[
+                                    'name' => 'Final',
+                                    'starts_at' => '2026-04-01 19:00',
+                                    'ends_at' => null,
+                                ]],
+                            ],
+                        ]],
+                    ]],
+                ], JSON_THROW_ON_ERROR),
+            ),
+        ]));
+        $client = new OpenAiInfoSheetClient(new Client(['handler' => $handler]), $dispatcher);
+
+        $client->extractSchedulePayload($this->eventInfo(), 'file_123');
+
+        self::assertCount(1, $events);
+        self::assertSame('POST', $events[0]->method);
+        self::assertSame('https://api.openai.com/v1/responses', $events[0]->uri);
+        self::assertSame(1, $events[0]->attempt);
+        self::assertSame(200, $events[0]->statusCode);
+    }
+
+    public function testExtractSchedulePayloadDispatchesOpenAiFailureEvent(): void
+    {
+        $this->setEnv('OPENAI_API_KEY', 'test-key');
+        $this->setEnv('OPENAI_HTTP_MAX_RETRIES', '0');
+        $events = [];
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(
+            OpenAiApiRequestFailedEvent::class,
+            static function (OpenAiApiRequestFailedEvent $event) use (&$events): void {
+                $events[] = $event;
+            },
+        );
+
+        $handler = HandlerStack::create(new MockHandler([
+            new Response(500, ['x-request-id' => 'req_1'], (string) json_encode(['error' => ['message' => 'boom']], JSON_THROW_ON_ERROR)),
+            new Response(500, ['x-request-id' => 'req_2'], (string) json_encode(['error' => ['message' => 'boom']], JSON_THROW_ON_ERROR)),
+        ]));
+        $client = new OpenAiInfoSheetClient(new Client(['handler' => $handler]), $dispatcher);
+
+        try {
+            $client->extractSchedulePayload($this->eventInfo(), 'file_123');
+            self::fail('Expected extractSchedulePayload to throw on HTTP 500.');
+        } catch (InfoSheetChatGptScheduleParserException) {
+            self::assertCount(2, $events);
+            self::assertSame('POST', $events[0]->method);
+            self::assertSame('https://api.openai.com/v1/responses', $events[0]->uri);
+            self::assertSame(500, $events[0]->statusCode);
+            self::assertFalse($events[0]->willRetry);
+        }
     }
 
     public function testExtractSchedulePayloadReturnsNullTicketInfoWhenMissing(): void

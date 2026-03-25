@@ -30,8 +30,7 @@ final class UpdateDatabaseCommandTest extends TestCase
         $syncService = new FakeSyncServiceForCommand($events);
         $command = new UpdateDatabaseCommand(new FakeContainerForCommand($syncService));
         $tester = new CommandTester($command);
-        $outputDirectory = sprintf('%s/ifsc-outfile-%s', sys_get_temp_dir(), uniqid('', true));
-        $outputPath = "{$outputDirectory}/events.json";
+        $outputPath = $this->outputPath();
 
         $exitCode = $tester->execute(['--season' => '2027', '--outfile' => $outputPath]);
 
@@ -43,7 +42,7 @@ final class UpdateDatabaseCommandTest extends TestCase
             json_decode((string) file_get_contents($outputPath), true, flags: JSON_THROW_ON_ERROR),
         );
 
-        $this->removeDirectory($outputDirectory);
+        $this->removeDirectory(dirname($outputPath));
     }
 
     public function testExecuteWithEmptyOutfileReturnsFailure(): void
@@ -59,26 +58,17 @@ final class UpdateDatabaseCommandTest extends TestCase
         self::assertStringContainsString('non-empty file path', $tester->getDisplay());
     }
 
-    public function testExecuteOutputsJsonPayloadWithEventsKey(): void
+    public function testExecuteWithoutOutfileReturnsFailure(): void
     {
-        $events = [[
-            'event_id' => 1,
-            'event_name' => 'Test Event',
-            'schedule' => [],
-        ]];
-        $syncService = new FakeSyncServiceForCommand($events);
+        $syncService = new FakeSyncServiceForCommand();
         $command = new UpdateDatabaseCommand(new FakeContainerForCommand($syncService));
         $tester = new CommandTester($command);
 
         $exitCode = $tester->execute(['--season' => '2027']);
-        $display = $tester->getDisplay();
 
-        self::assertSame(Command::SUCCESS, $exitCode);
-        self::assertStringNotContainsString('Generate Schedule', $display);
-        self::assertSame(
-            ['events' => $events],
-            json_decode($display, true, flags: JSON_THROW_ON_ERROR),
-        );
+        self::assertSame(Command::FAILURE, $exitCode);
+        self::assertFalse($syncService->called);
+        self::assertStringContainsString('--outfile option is required', $tester->getDisplay());
     }
 
     public function testExecuteWithSeasonOptionUsesForceRescanFalseByDefault(): void
@@ -86,14 +76,17 @@ final class UpdateDatabaseCommandTest extends TestCase
         $syncService = new FakeSyncServiceForCommand();
         $command = new UpdateDatabaseCommand(new FakeContainerForCommand($syncService));
         $tester = new CommandTester($command);
+        $outputPath = $this->outputPath();
 
-        $exitCode = $tester->execute(['--season' => '2027']);
+        $exitCode = $tester->execute(['--season' => '2027', '--outfile' => $outputPath]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertTrue($syncService->called);
         self::assertFalse($syncService->lastForceRescan);
         self::assertSame(2027, $syncService->lastSeasonYear);
         self::assertSame([457, 318, 438], $syncService->lastLeagueSeasonIds);
+
+        $this->removeDirectory(dirname($outputPath));
     }
 
     public function testExecuteWithForceRescanOptionPassesTrueToSyncService(): void
@@ -101,14 +94,21 @@ final class UpdateDatabaseCommandTest extends TestCase
         $syncService = new FakeSyncServiceForCommand();
         $command = new UpdateDatabaseCommand(new FakeContainerForCommand($syncService));
         $tester = new CommandTester($command);
+        $outputPath = $this->outputPath();
 
-        $exitCode = $tester->execute(['--season' => '2027', '--force-rescan' => true]);
+        $exitCode = $tester->execute([
+            '--season' => '2027',
+            '--force-rescan' => true,
+            '--outfile' => $outputPath,
+        ]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertTrue($syncService->called);
         self::assertTrue($syncService->lastForceRescan);
         self::assertSame(2027, $syncService->lastSeasonYear);
         self::assertSame([457, 318, 438], $syncService->lastLeagueSeasonIds);
+
+        $this->removeDirectory(dirname($outputPath));
     }
 
     public function testExecuteWithLeagueFlagsPassesSelectedLeagueSeasonIdsOnly(): void
@@ -116,12 +116,20 @@ final class UpdateDatabaseCommandTest extends TestCase
         $syncService = new FakeSyncServiceForCommand();
         $command = new UpdateDatabaseCommand(new FakeContainerForCommand($syncService));
         $tester = new CommandTester($command);
+        $outputPath = $this->outputPath();
 
-        $exitCode = $tester->execute(['--season' => '2027', '--games' => true, '--paraclimbing' => true]);
+        $exitCode = $tester->execute([
+            '--season' => '2027',
+            '--games' => true,
+            '--paraclimbing' => true,
+            '--outfile' => $outputPath,
+        ]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertTrue($syncService->called);
         self::assertSame([318, 438], $syncService->lastLeagueSeasonIds);
+
+        $this->removeDirectory(dirname($outputPath));
     }
 
     public function testExecuteWithInvalidSeasonReturnsFailure(): void
@@ -129,8 +137,9 @@ final class UpdateDatabaseCommandTest extends TestCase
         $syncService = new FakeSyncServiceForCommand();
         $command = new UpdateDatabaseCommand(new FakeContainerForCommand($syncService));
         $tester = new CommandTester($command);
+        $outputPath = $this->outputPath();
 
-        $exitCode = $tester->execute(['--season' => 'foo']);
+        $exitCode = $tester->execute(['--season' => 'foo', '--outfile' => $outputPath]);
 
         self::assertSame(Command::FAILURE, $exitCode);
         self::assertFalse($syncService->called);
@@ -142,8 +151,9 @@ final class UpdateDatabaseCommandTest extends TestCase
         $syncService = new FakeSyncServiceForCommand();
         $command = new UpdateDatabaseCommand(new FakeContainerForCommand($syncService));
         $tester = new CommandTester($command);
+        $outputPath = $this->outputPath();
 
-        $exitCode = $tester->execute([]);
+        $exitCode = $tester->execute(['--outfile' => $outputPath]);
 
         self::assertSame(Command::FAILURE, $exitCode);
         self::assertFalse($syncService->called);
@@ -157,12 +167,20 @@ final class UpdateDatabaseCommandTest extends TestCase
         );
         $command = new UpdateDatabaseCommand(new FakeContainerForCommand($syncService));
         $tester = new CommandTester($command);
+        $outputPath = $this->outputPath();
 
-        $exitCode = $tester->execute(['--season' => '2027']);
+        $exitCode = $tester->execute(['--season' => '2027', '--outfile' => $outputPath]);
 
         self::assertSame(Command::FAILURE, $exitCode);
         self::assertTrue($syncService->called);
         self::assertStringContainsString('OpenAI HTTP 500', $tester->getDisplay());
+    }
+
+    private function outputPath(): string
+    {
+        $outputDirectory = sprintf('%s/ifsc-outfile-%s', sys_get_temp_dir(), uniqid('', true));
+
+        return "{$outputDirectory}/events.json";
     }
 
     private function removeDirectory(string $path): void

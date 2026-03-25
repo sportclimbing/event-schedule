@@ -69,7 +69,7 @@ final class UpdateDatabaseCommand extends Command
                 'outfile',
                 null,
                 InputOption::VALUE_REQUIRED,
-                'Optional output file path for schedule JSON.',
+                'Required output file path for schedule JSON.',
             );
     }
 
@@ -116,19 +116,13 @@ final class UpdateDatabaseCommand extends Command
             return Command::FAILURE;
         }
 
-        if ($outputFilePath !== null) {
-            try {
-                $this->writeJsonToFile($outputFilePath, $json);
-            } catch (RuntimeException $exception) {
-                $io->error($exception->getMessage());
+        try {
+            $this->writeJsonToFile($outputFilePath, $json);
+        } catch (RuntimeException $exception) {
+            $io->error($exception->getMessage());
 
-                return Command::FAILURE;
-            }
-
-            return Command::SUCCESS;
+            return Command::FAILURE;
         }
-
-        $output->writeln($json, OutputInterface::OUTPUT_RAW);
 
         return Command::SUCCESS;
     }
@@ -142,16 +136,12 @@ final class UpdateDatabaseCommand extends Command
         return ['events' => $events];
     }
 
-    private function resolveOutputFilePath(InputInterface $input): ?string
+    private function resolveOutputFilePath(InputInterface $input): string
     {
         $outputFilePath = $input->getOption('outfile');
 
-        if ($outputFilePath === null) {
-            return null;
-        }
-
         if (!is_string($outputFilePath) || trim($outputFilePath) === '') {
-            throw new RuntimeException('The --outfile option must be a non-empty file path.');
+            throw new RuntimeException('The --outfile option is required and must be a non-empty file path.');
         }
 
         return trim($outputFilePath);
