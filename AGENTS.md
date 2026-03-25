@@ -16,6 +16,7 @@
 - Use `declare(strict_types=1);` in all PHP files except interfaces
 - Keep the base namespace `SportClimbing\EventDetails`.
 - Add this phpdoc block immediately above each `namespace` declaration:
+- When creating phpdoc, avoid using `array<mixed>`, just use `array`
 
 ```php
 /**

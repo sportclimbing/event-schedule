@@ -72,3 +72,9 @@ services:
 
   SportClimbing\EventDetails\Domain\Schedule\Port\InfoSheetScheduleParserInterface:
     alias: SportClimbing\EventDetails\Infrastructure\Schedule\InfoSheetChatGptScheduleParser
+
+  SportClimbing\EventDetails\Infrastructure\ReleaseNotes\JsonScheduleEventsLoader: ~
+
+  SportClimbing\EventDetails\Infrastructure\ReleaseNotes\MarkdownScheduleReleaseNotesRenderer: ~
+
+  SportClimbing\EventDetails\Infrastructure\ReleaseNotes\TextReportFileWriter: ~

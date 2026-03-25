@@ -39,7 +39,12 @@ final class GenerateScheduleReleaseNotesCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertFileExists($outputPath);
-        self::assertStringContainsString('Added events: 1', (string) file_get_contents($outputPath));
+        $output = (string) file_get_contents($outputPath);
+        self::assertStringContainsString('| Metric | Value |', $output);
+        self::assertStringContainsString(sprintf('| Previous file | `%s` |', $previousPath), $output);
+        self::assertStringContainsString(sprintf('| Current file | `%s` |', $currentPath), $output);
+        self::assertStringContainsString('| Added events | 1 |', $output);
+        self::assertStringContainsString('## Added Events', $output);
 
         $this->removeDirectory($workDir);
     }
@@ -71,12 +76,16 @@ final class GenerateScheduleReleaseNotesCommandTest extends TestCase
         $display = $tester->getDisplay();
 
         self::assertSame(Command::SUCCESS, $exitCode);
-        self::assertStringContainsString('Added events: 1', $display);
-        self::assertStringContainsString('Removed events: 1', $display);
-        self::assertStringContainsString('Changed events: 1', $display);
-        self::assertStringContainsString('- 3 C', $display);
-        self::assertStringContainsString('- 2 B', $display);
-        self::assertStringContainsString('- 1 A Updated (fields: event name)', $display);
+        self::assertStringContainsString('| Added events | 1 |', $display);
+        self::assertStringContainsString('| Removed events | 1 |', $display);
+        self::assertStringContainsString('| Changed events | 1 |', $display);
+        self::assertStringContainsString('## Added Events', $display);
+        self::assertStringContainsString('| 3 | C |', $display);
+        self::assertStringContainsString('## Removed Events', $display);
+        self::assertStringContainsString('| 2 | B |', $display);
+        self::assertStringContainsString('## Changed Events', $display);
+        self::assertStringContainsString('| Event ID | Event Name | Field | Old value | New value |', $display);
+        self::assertStringContainsString('| 1 | A Updated | event name | A | A Updated |', $display);
 
         $this->removeDirectory($workDir);
     }

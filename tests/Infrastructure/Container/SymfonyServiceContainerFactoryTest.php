@@ -15,6 +15,7 @@ use SportClimbing\EventDetails\Domain\Event\Port\IfscApiClientInterface;
 use SportClimbing\EventDetails\Domain\Event\Port\RecentLeagueProviderInterface;
 use SportClimbing\EventDetails\Domain\Event\Service\IfscEventInfoProvider;
 use SportClimbing\EventDetails\Domain\Event\Service\RecentEventsScheduleSyncService;
+use SportClimbing\EventDetails\Domain\ReleaseNotes\Service\ScheduleReleaseNotesDiffService;
 use SportClimbing\EventDetails\Domain\Schedule\Port\InfoSheetScheduleParserInterface;
 use SportClimbing\EventDetails\Infrastructure\Container\SymfonyServiceContainerFactory;
 use SportClimbing\EventDetails\Infrastructure\Event\Cache\EventScheduleJsonCache;
@@ -23,6 +24,9 @@ use SportClimbing\EventDetails\Infrastructure\IFSC\IfscApiClientFactory;
 use SportClimbing\EventDetails\Infrastructure\IFSC\IfscRecentLeagueProvider;
 use SportClimbing\EventDetails\Infrastructure\IFSC\IfscApiSessionAuthenticator;
 use SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener;
+use SportClimbing\EventDetails\Infrastructure\ReleaseNotes\JsonScheduleEventsLoader;
+use SportClimbing\EventDetails\Infrastructure\ReleaseNotes\MarkdownScheduleReleaseNotesRenderer;
+use SportClimbing\EventDetails\Infrastructure\ReleaseNotes\TextReportFileWriter;
 use SportClimbing\EventDetails\Infrastructure\Schedule\InfoSheetChatGptScheduleParser;
 use SportClimbing\EventDetails\Infrastructure\Schedule\Pdf\InfoSheetPdfDownloader;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -45,6 +49,10 @@ final class SymfonyServiceContainerFactoryTest extends TestCase
         self::assertTrue($container->hasDefinition(StdoutObservabilityListener::class));
         self::assertTrue($container->hasDefinition(EventDispatcher::class));
         self::assertTrue($container->hasDefinition(RecentEventsScheduleSyncService::class));
+        self::assertTrue($container->hasDefinition(ScheduleReleaseNotesDiffService::class));
+        self::assertTrue($container->hasDefinition(JsonScheduleEventsLoader::class));
+        self::assertTrue($container->hasDefinition(MarkdownScheduleReleaseNotesRenderer::class));
+        self::assertTrue($container->hasDefinition(TextReportFileWriter::class));
 
         self::assertTrue($container->hasAlias(EventInfoProviderInterface::class));
         self::assertSame(

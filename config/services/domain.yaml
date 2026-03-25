@@ -14,3 +14,5 @@ services:
 
   SportClimbing\EventDetails\Domain\Event\Service\RecentEventsScheduleSyncService:
     public: true
+
+  SportClimbing\EventDetails\Domain\ReleaseNotes\Service\ScheduleReleaseNotesDiffService: ~
