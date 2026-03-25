@@ -140,8 +140,8 @@ jobs:
         if: steps.compare.outputs.changed == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.value }}
-          name: Schedule ${{ steps.season.outputs.value }} (${{ steps.tag.outputs.value }})
+          tag_name: ${{ steps.tag.outputs.tag_name }}
+          name: ${{ steps.tag.outputs.value }}
           target_commitish: ${{ github.sha }}
           body_path: release-notes.txt
           files: |
