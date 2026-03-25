@@ -10,7 +10,9 @@ namespace SportClimbing\EventDetails\Tests\Infrastructure\Schedule\Cache;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetScheduleCacheHitEvent;
 use SportClimbing\EventDetails\Infrastructure\Schedule\Cache\InfoSheetScheduleCache;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 
 final class InfoSheetScheduleCacheTest extends TestCase
 {
@@ -51,6 +53,44 @@ final class InfoSheetScheduleCacheTest extends TestCase
         $key = hash('sha256', $url);
 
         self::assertSame('103029a1a68c1909983a3b9f52b85f5d', $manifest['urls'][$key]['etag']);
+
+        $this->removeDirectory($cacheDir);
+    }
+
+    public function testLoadFromHeadersAndHashDispatchesCacheHitEventWhenPayloadIsUsed(): void
+    {
+        $cacheDir = sprintf('%s/ifsc-infosheet-cache-%s', sys_get_temp_dir(), uniqid('', true));
+        $this->setEnv('IFSC_INFOSHEET_CACHE_DIR', $cacheDir);
+        $events = [];
+        $dispatcher = new EventDispatcher();
+        $dispatcher->addListener(
+            InfoSheetScheduleCacheHitEvent::class,
+            static function (InfoSheetScheduleCacheHitEvent $event) use (&$events): void {
+                $events[] = $event;
+            },
+        );
+
+        $cache = new InfoSheetScheduleCache($dispatcher);
+        $url = 'https://ifsc.results.info/events/3/infosheet.pdf';
+        $etag = '"etag-3"';
+
+        $cache->store(
+            infoSheetUrl: $url,
+            infoSheetHeaders: ['etag' => [$etag]],
+            pdfHash: null,
+            rounds: [[
+                'name' => 'Final',
+                'starts_at' => '2026-06-20 19:00',
+                'ends_at' => null,
+            ]],
+        );
+
+        $payload = $cache->loadFromHeadersAndHash(['etag' => [$etag]], null);
+
+        self::assertNotNull($payload);
+        self::assertCount(1, $events);
+        self::assertSame(64, strlen($events[0]->cacheId));
+        self::assertStringEndsWith('.json', $events[0]->path);
 
         $this->removeDirectory($cacheDir);
     }

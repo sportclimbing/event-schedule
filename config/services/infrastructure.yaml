@@ -21,6 +21,10 @@ services:
         arguments:
           - 'SportClimbing\EventDetails\Infrastructure\Observability\Event\OpenAiApiRequestFailedEvent'
           - ['@SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener', 'onOpenAiApiRequestFailed']
+      - method: addListener
+        arguments:
+          - 'SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetScheduleCacheHitEvent'
+          - ['@SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener', 'onInfoSheetScheduleCacheHit']
 
   Symfony\Contracts\EventDispatcher\EventDispatcherInterface:
     alias: Symfony\Component\EventDispatcher\EventDispatcher

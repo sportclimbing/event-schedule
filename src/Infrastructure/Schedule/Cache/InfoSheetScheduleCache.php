@@ -11,7 +11,10 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use JsonException;
 use RuntimeException;
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetScheduleCacheHitEvent;
 use SportClimbing\EventDetails\Infrastructure\Schedule\Exception\InfoSheetChatGptScheduleParserException;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Throwable;
 
 final class InfoSheetScheduleCache
@@ -25,9 +28,13 @@ final class InfoSheetScheduleCache
 
     private string $cacheDir;
     private int $lastModifiedStaleDays;
+    private EventDispatcherInterface $eventDispatcher;
 
-    public function __construct()
+    public function __construct(
+        ?EventDispatcherInterface $eventDispatcher = null,
+    )
     {
+        $this->eventDispatcher = $eventDispatcher ?? new EventDispatcher();
         $cacheDir = $this->readEnvironmentVariable('IFSC_INFOSHEET_CACHE_DIR');
         $cacheDir = rtrim($cacheDir !== '' ? $cacheDir : self::DEFAULT_CACHE_DIR, '/');
         $this->cacheDir = $this->resolvePath($cacheDir !== '' ? $cacheDir : self::DEFAULT_CACHE_DIR);
@@ -368,6 +375,11 @@ final class InfoSheetScheduleCache
                 return null;
             }
 
+            $this->dispatchEvent(new InfoSheetScheduleCacheHitEvent(
+                cacheId: $cacheId,
+                path: $path,
+            ));
+
             return [
                 'rounds' => $this->normalizeRoundsForCache($rounds),
                 'ticket_purchase_url' => $this->toStringOrNull($payload['ticket_purchase_url'] ?? null),
@@ -558,6 +570,14 @@ final class InfoSheetScheduleCache
         }
 
         return $decoded;
+    }
+
+    private function dispatchEvent(object $event): void
+    {
+        try {
+            $this->eventDispatcher->dispatch($event);
+        } catch (Throwable) {
+        }
     }
 
     private function readEnvironmentVariable(string $name): string

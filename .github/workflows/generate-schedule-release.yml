@@ -4,9 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       season:
-        description: "Season year (for example: 2026)"
+        description: "Season year"
+        required: true
+        type: choice
+        options:
+          - '2026'
+        default: '2026'
+      force_rescan:
+        description: "Force infosheet re-parse and ignore cached schedule data."
         required: false
-        type: string
+        type: boolean
+        default: true
   schedule:
     - cron: '0 5 * * *'
 
@@ -40,10 +48,25 @@ jobs:
           if [ -n "${season_input}" ]; then
             season="${season_input}"
           else
-            season="$(date -u +%Y)"
+            season="2026"
           fi
 
           echo "value=${season}" >> "$GITHUB_OUTPUT"
+
+      - name: "Resolve force-rescan option"
+        id: force_rescan
+        run: |
+          force_rescan_input="${{ github.event.inputs.force_rescan }}"
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            force_rescan="true"
+          elif [ "${force_rescan_input}" = "true" ]; then
+            force_rescan="true"
+          else
+            force_rescan="false"
+          fi
+
+          echo "value=${force_rescan}" >> "$GITHUB_OUTPUT"
 
       - name: "Restore infosheet cache"
         id: infosheet_cache_restore
@@ -58,13 +81,18 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          php bin/generate-schedule \
+          cmd=(php bin/generate-schedule \
             --season "${{ steps.season.outputs.value }}" \
             --world-cups \
             --games \
-            --paraclimbing \
-            --force-rescan \
-            --outfile events-with-schedules.json
+            --paraclimbing)
+
+          if [ "${{ steps.force_rescan.outputs.value }}" = "true" ]; then
+            cmd+=(--force-rescan)
+          fi
+
+          cmd+=(--outfile events-with-schedules.json)
+          "${cmd[@]}"
 
       - name: "Save infosheet cache"
         if: always() && !cancelled() && hashFiles('.cache/infosheet/**') != ''

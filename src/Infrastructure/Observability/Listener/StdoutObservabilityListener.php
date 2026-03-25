@@ -7,6 +7,7 @@
  */
 namespace SportClimbing\EventDetails\Infrastructure\Observability\Listener;
 
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetScheduleCacheHitEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadFailedEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadedEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\OpenAiApiRequestFailedEvent;
@@ -65,6 +66,15 @@ final readonly class StdoutObservabilityListener
             $event->durationMilliseconds,
             $event->willRetry ? 'true' : 'false',
             $event->reason,
+        ));
+    }
+
+    public function onInfoSheetScheduleCacheHit(InfoSheetScheduleCacheHitEvent $event): void
+    {
+        $this->writeLine(sprintf(
+            '[+] infosheet cache file found and used cache_id=%s path=%s',
+            $event->cacheId,
+            $event->path,
         ));
     }
 

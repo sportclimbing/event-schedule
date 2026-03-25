@@ -8,6 +8,7 @@
 namespace SportClimbing\EventDetails\Tests\Infrastructure\Observability\Listener;
 
 use PHPUnit\Framework\TestCase;
+use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetScheduleCacheHitEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadFailedEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadedEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\OpenAiApiRequestFailedEvent;
@@ -50,13 +51,18 @@ final class StdoutObservabilityListenerTest extends TestCase
             willRetry: false,
             reason: 'HTTP 500',
         ));
+        $listener->onInfoSheetScheduleCacheHit(new InfoSheetScheduleCacheHitEvent(
+            cacheId: 'abc123',
+            path: '/tmp/cache.json',
+        ));
 
         $output = (string) file_get_contents($outputPath);
 
-        self::assertStringContainsString('[observability] infosheet pdf downloaded', $output);
-        self::assertStringContainsString('[observability] infosheet pdf download failed', $output);
-        self::assertStringContainsString('[observability] openai request succeeded', $output);
-        self::assertStringContainsString('[observability] openai request failed', $output);
+        self::assertStringContainsString('infosheet pdf downloaded', $output);
+        self::assertStringContainsString('infosheet pdf download failed', $output);
+        self::assertStringContainsString('openai request succeeded', $output);
+        self::assertStringContainsString('openai request failed', $output);
+        self::assertStringContainsString('infosheet cache file found and used', $output);
 
         @unlink($outputPath);
     }
