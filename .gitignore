@@ -1,5 +1,5 @@
 .DS_Store
 /.idea
-/.cache/infosheet/pdf
+/.cache
 /vendor
 /.phpunit.result.cache

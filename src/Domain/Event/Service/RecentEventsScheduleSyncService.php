@@ -30,9 +30,12 @@ final readonly class RecentEventsScheduleSyncService
     }
 
     /** @return array<array<string,mixed>> */
-    public function sync(bool $forceRescan = false, array $leagueSeasonIds = [457, 318, 438]): array
-    {
-        $leagues = $this->recentLeagueProvider->fetchRecentLeagueIds();
+    public function sync(
+        int $seasonYear,
+        array $leagueSeasonIds = [457, 318, 438],
+        bool $forceRescan = false,
+    ): array {
+        $leagues = $this->recentLeagueProvider->fetchRecentLeagueIds($seasonYear);
         $events = [];
 
         foreach ($this->eventInfoProvider->fetchEventsForLeagues($leagues) as $event) {
@@ -100,8 +103,7 @@ final readonly class RecentEventsScheduleSyncService
         array $schedules,
         ?InfoSheetTicketInfo $ticketInfo = null,
         ?string $scheduleError = null,
-    ): array
-    {
+    ): array {
         $node = [
             'event_id' => $event->eventId,
             'event_name' => $event->eventName,
@@ -230,5 +232,4 @@ final readonly class RecentEventsScheduleSyncService
 
         return $normalized;
     }
-
 }

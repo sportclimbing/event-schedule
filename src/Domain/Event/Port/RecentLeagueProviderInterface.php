@@ -12,5 +12,5 @@ use SportClimbing\EventDetails\Domain\Event\Entity\League;
 interface RecentLeagueProviderInterface
 {
     /** @return array<int, League|int> */
-    public function fetchRecentLeagueIds(): array;
+    public function fetchRecentLeagueIds(?int $seasonYear = null): array;
 }

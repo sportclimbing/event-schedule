@@ -1,0 +1,156 @@
+name: "Generate Schedule Release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season year (for example: 2026)"
+        required: false
+        type: string
+  schedule:
+    - cron: '0 5 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  generate-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+
+      - name: "Setup PHP"
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          tools: composer:v2
+          coverage: none
+
+      - name: "Install dependencies"
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: "Resolve season year"
+        id: season
+        run: |
+          season_input="${{ github.event.inputs.season }}"
+
+          if [ -n "${season_input}" ]; then
+            season="${season_input}"
+          else
+            season="$(date -u +%Y)"
+          fi
+
+          echo "value=${season}" >> "$GITHUB_OUTPUT"
+
+      - name: "Restore infosheet cache"
+        id: infosheet_cache_restore
+        uses: actions/cache/restore@v5
+        with:
+          path: .cache/infosheet
+          key: infosheet-cache-${{ steps.season.outputs.value }}
+
+      - name: "Generate schedule JSON"
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          php bin/generate-schedule \
+            --season "${{ steps.season.outputs.value }}" \
+            --world-cups \
+            --games \
+            --paraclimbing \
+            --force-rescan \
+            --outfile events-with-schedules.json
+
+      - name: "Save infosheet cache"
+        if: always() && !cancelled() && hashFiles('.cache/infosheet/**') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: .cache/infosheet
+          key: infosheet-cache-${{ steps.season.outputs.value }}
+
+      - name: "Download previous release JSON"
+        id: previous
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          status="$(curl -sS -L -o latest-release.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest")"
+
+          if [ "${status}" != "200" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          asset_url="$(jq -r '.assets[]? | select(.name=="events-with-schedules.json") | .url' latest-release.json)"
+
+          if [ -z "${asset_url}" ] || [ "${asset_url}" = "null" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          curl -sS -L \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/octet-stream" \
+            "${asset_url}" \
+            -o previous-events-with-schedules.json
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
+
+      - name: "Detect changes"
+        id: compare
+        run: |
+          set -euo pipefail
+
+          if [ ! -f previous-events-with-schedules.json ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if cmp -s previous-events-with-schedules.json events-with-schedules.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: "Build release notes"
+        if: steps.compare.outputs.changed == 'true'
+        run: |
+          php bin/generate-schedule-release-notes \
+            --previous previous-events-with-schedules.json \
+            --current events-with-schedules.json \
+            --outfile release-notes.txt
+
+      - name: "Build release tag"
+        if: steps.compare.outputs.changed == 'true'
+        id: tag
+        run: |
+          timestamp="$(date -u +%Y%m%d%H%M%S)"
+          echo "value=schedule-${{ steps.season.outputs.value }}-${timestamp}" >> "$GITHUB_OUTPUT"
+
+      - name: "Create release"
+        if: steps.compare.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          name: Schedule ${{ steps.season.outputs.value }} (${{ steps.tag.outputs.value }})
+          target_commitish: ${{ github.sha }}
+          body_path: release-notes.txt
+          files: |
+            events-with-schedules.json
+
+      - name: "Run latest-tag"
+        if: steps.compare.outputs.changed == 'true'
+        uses: Actions-R-Us/actions-tagger@v2
+        with:
+          publish_latest_tag: true
+
+      - name: "No changes"
+        if: steps.compare.outputs.changed != 'true'
+        run: echo "No changes in events-with-schedules.json compared to the latest release."

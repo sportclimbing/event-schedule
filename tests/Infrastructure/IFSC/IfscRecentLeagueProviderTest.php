@@ -34,6 +34,16 @@ final class IfscRecentLeagueProviderTest extends TestCase
         ], $provider->fetchRecentLeagueIds());
         self::assertSame('/api/v1/seasons/38', $apiClient->lastUrl);
     }
+
+    public function testFetchRecentLeagueIdsUsesSeasonYearToCalculateSeasonId(): void
+    {
+        $apiClient = new FakeIfscApiClientForLeagues((object) ['leagues' => []]);
+        $provider = new IfscRecentLeagueProvider($apiClient);
+
+        $provider->fetchRecentLeagueIds(2027);
+
+        self::assertSame('/api/v1/seasons/39', $apiClient->lastUrl);
+    }
 }
 
 final class FakeIfscApiClientForLeagues implements IfscApiClientInterface

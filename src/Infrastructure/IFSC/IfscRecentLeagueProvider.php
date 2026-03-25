@@ -14,6 +14,7 @@ use SportClimbing\EventDetails\Infrastructure\IFSC\Exception\IfscApiClientExcept
 
 final readonly class IfscRecentLeagueProvider implements RecentLeagueProviderInterface
 {
+    private const int DEFAULT_SEASON_YEAR = 2026;
     private const int DEFAULT_SEASON_ID = 38;
 
     public function __construct(
@@ -22,9 +23,9 @@ final readonly class IfscRecentLeagueProvider implements RecentLeagueProviderInt
     }
 
     /** @return array<int, League|int> */
-    public function fetchRecentLeagueIds(): array
+    public function fetchRecentLeagueIds(?int $seasonYear = null): array
     {
-        $seasonId = $this->readSeasonId();
+        $seasonId = $this->readSeasonId($seasonYear);
         $payload = $this->apiClient->authenticatedGet(sprintf('/api/v1/seasons/%d', $seasonId));
 
         if (!is_object($payload) || !isset($payload->leagues) || !is_array($payload->leagues)) {
@@ -61,8 +62,12 @@ final readonly class IfscRecentLeagueProvider implements RecentLeagueProviderInt
         return (string) $leagueId;
     }
 
-    private function readSeasonId(): int
+    private function readSeasonId(?int $seasonYear = null): int
     {
+        if ($seasonYear !== null) {
+            return $this->seasonIdFromYear($seasonYear);
+        }
+
         $value = $_ENV['IFSC_RECENT_SEASON_ID'] ?? getenv('IFSC_RECENT_SEASON_ID');
 
         if (is_string($value) && ctype_digit($value)) {
@@ -70,5 +75,10 @@ final readonly class IfscRecentLeagueProvider implements RecentLeagueProviderInt
         }
 
         return self::DEFAULT_SEASON_ID;
+    }
+
+    private function seasonIdFromYear(int $year): int
+    {
+        return max(1, self::DEFAULT_SEASON_ID + ($year - self::DEFAULT_SEASON_YEAR));
     }
 }

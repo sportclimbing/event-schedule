@@ -3,6 +3,9 @@
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/13.0/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true">
+    <php>
+        <env name="IFSC_EVENTS_SCHEDULE_DISABLE_CACHE_WRITE" value="0" force="true"/>
+    </php>
     <testsuites>
         <testsuite name="EventDetails">
             <directory>tests</directory>

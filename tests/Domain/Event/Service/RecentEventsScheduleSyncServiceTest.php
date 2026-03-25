@@ -54,7 +54,7 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             eventScheduleCache: $cacheWriter,
         );
 
-        $result = $service->sync();
+        $result = $service->sync(2026);
 
         self::assertSame([457], $eventInfoProvider->lastLeagues);
         self::assertSame(1, $scheduleParser->loadCalls);
@@ -113,7 +113,7 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             eventScheduleCache: $cacheWriter,
         );
 
-        $result = $service->sync();
+        $result = $service->sync(2026);
 
         self::assertSame(1, $scheduleParser->loadCalls);
         self::assertSame(1, $scheduleParser->parseCalls);
@@ -151,7 +151,7 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             eventScheduleCache: $cacheWriter,
         );
 
-        $result = $service->sync();
+        $result = $service->sync(2026);
 
         self::assertNull($result[0]['tickets']['price']);
         self::assertSame('USD', $result[0]['tickets']['currency']);
@@ -192,7 +192,7 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             eventScheduleCache: $cacheWriter,
         );
 
-        $result = $service->sync(forceRescan: true);
+        $result = $service->sync(seasonYear: 2026, forceRescan: true);
 
         self::assertSame(0, $scheduleParser->loadCalls);
         self::assertSame(1, $scheduleParser->parseCalls);
@@ -220,7 +220,7 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             eventScheduleCache: $cacheWriter,
         );
 
-        $result = $service->sync();
+        $result = $service->sync(2026);
 
         self::assertSame(0, $pdfDownloader->downloadCalls);
         self::assertSame(0, $scheduleParser->loadCalls);
@@ -250,7 +250,7 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             eventScheduleCache: $cacheWriter,
         );
 
-        $result = $service->sync();
+        $result = $service->sync(2026);
 
         self::assertCount(1, $result);
         self::assertSame([], $result[0]['schedule']);
@@ -273,7 +273,7 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             eventScheduleCache: new RecordingEventScheduleCache(),
         );
 
-        $result = $service->sync();
+        $result = $service->sync(2026);
 
         self::assertSame([
             'name' => 'Bern',
@@ -299,11 +299,30 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             eventScheduleCache: $cacheWriter,
         );
 
-        $result = $service->sync(leagueSeasonIds: [2026]);
+        $result = $service->sync(seasonYear: 2026, leagueSeasonIds: [2026]);
 
         self::assertCount(1, $result);
         self::assertSame(2026, $result[0]['league_season_id']);
         self::assertSame($result, $cacheWriter->savedEvents);
+    }
+
+    public function testSyncPassesSeasonYearToRecentLeagueProvider(): void
+    {
+        $leagueProvider = new FakeRecentLeagueProvider([457]);
+        $service = new RecentEventsScheduleSyncService(
+            recentLeagueProvider: $leagueProvider,
+            eventInfoProvider: new FakeEventInfoProvider([]),
+            infoSheetPdfDownloader: new FakeInfoSheetPdfDownloader(),
+            infoSheetScheduleParser: new FakeInfoSheetScheduleParser(
+                cachedSchedulesByUrl: [],
+                parsedSchedulesByUrl: [],
+            ),
+            eventScheduleCache: new RecordingEventScheduleCache(),
+        );
+
+        $service->sync(seasonYear: 2027);
+
+        self::assertSame(2027, $leagueProvider->lastSeasonYear);
     }
 
     private function eventInfo(
@@ -330,16 +349,20 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
     }
 }
 
-final readonly class FakeRecentLeagueProvider implements RecentLeagueProviderInterface
+final class FakeRecentLeagueProvider implements RecentLeagueProviderInterface
 {
+    public ?int $lastSeasonYear = null;
+
     /** @param array<int, \SportClimbing\EventDetails\Domain\Event\Entity\League|int> $leagueIds */
     public function __construct(
         private array $leagueIds,
     ) {
     }
 
-    public function fetchRecentLeagueIds(): array
+    public function fetchRecentLeagueIds(?int $seasonYear = null): array
     {
+        $this->lastSeasonYear = $seasonYear;
+
         return $this->leagueIds;
     }
 }

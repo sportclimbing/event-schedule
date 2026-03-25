@@ -16,8 +16,10 @@ use SportClimbing\EventDetails\Domain\Event\Port\EventScheduleCacheInterface;
 final class EventScheduleJsonCache implements EventScheduleCacheInterface
 {
     private const string DEFAULT_CACHE_FILE = '.cache/events-with-schedules.json';
+    private const string DISABLE_CACHE_WRITE_ENV = 'IFSC_EVENTS_SCHEDULE_DISABLE_CACHE_WRITE';
 
     private string $cacheFilePath;
+    private bool $cacheWriteEnabled;
 
     public function __construct()
     {
@@ -26,11 +28,25 @@ final class EventScheduleJsonCache implements EventScheduleCacheInterface
             ? trim($configuredPath)
             : self::DEFAULT_CACHE_FILE;
         $this->cacheFilePath = $this->resolvePath($resolvedPath);
+
+        $disableCacheWrite = $_ENV[self::DISABLE_CACHE_WRITE_ENV] ?? getenv(self::DISABLE_CACHE_WRITE_ENV);
+
+        if ($disableCacheWrite === false || $disableCacheWrite === null) {
+            $disableCacheWrite = '1';
+        }
+
+        $this->cacheWriteEnabled = !$this->isTruthyEnvValue(
+            $disableCacheWrite,
+        );
     }
 
     /** @param array<array<string,mixed>> $events */
     public function save(array $events): void
     {
+        if (!$this->cacheWriteEnabled) {
+            return;
+        }
+
         $directory = dirname($this->cacheFilePath);
 
         if (!is_dir($directory) && !@mkdir($directory, 0777, true) && !is_dir($directory)) {
@@ -71,5 +87,14 @@ final class EventScheduleJsonCache implements EventScheduleCacheInterface
     {
         return str_starts_with($path, '/')
             || preg_match('~^[A-Za-z]:[\\\\/]~', $path) === 1;
+    }
+
+    private function isTruthyEnvValue(mixed $value): bool
+    {
+        if (!is_string($value)) {
+            return false;
+        }
+
+        return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
     }
 }
