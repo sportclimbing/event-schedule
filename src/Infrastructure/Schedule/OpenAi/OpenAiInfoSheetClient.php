@@ -360,7 +360,9 @@ final readonly class OpenAiInfoSheetClient
               - ticket_price: numeric ticket price only (no currency symbol/code), string format.
               - ticket_currency: ticket price currency as ISO code when possible (e.g. EUR, USD, CHF), otherwise symbol. Return "null" when no price can be found
               - ticket_summary: concise attendee-facing summary with ticket notes (for example if entry is free, where to buy tickets, notable conditions/restrictions, and any practical attendee hints).
+                - Look well, this should never be empty. There is always info regarding tickets, even if it's just TBA or similar
             - If no ticket information exists, set ticket_purchase_url, ticket_price, ticket_currency, and ticket_summary to null.
+            - Don't use hyphens (—) or emojis
             
             Round name rules:
              - Use regular single quotes (') instead of fancy quotes
@@ -369,6 +371,8 @@ final readonly class OpenAiInfoSheetClient
              - Semi Final round names should be spelled as "Semi-Final"
              - They all should include gender (eg "Men's", "Women's" or "Men's & Women's"), followed by the discipline ("Boulder", "Lead", or "Speed"), followed by "Qualification", "Semi-Final" or "Final".
                - Some valid examples: "Women's Boulder Final", "Men's & Women's Lead Qualification", "Men's Speed Semi-Final"
+             - If a round name can't be found, take your best guess keeping the above format. Never keep it empty/null
+             - If gender is not specified or it says "Mixed", assume it's "Men's & Women's" 
             PROMPT,
             $event->eventName,
             $event->localStartDate,
