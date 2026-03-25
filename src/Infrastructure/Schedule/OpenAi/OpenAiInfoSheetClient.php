@@ -351,7 +351,6 @@ final readonly class OpenAiInfoSheetClient
             Output rules:
             - Return only official competition rounds (Qualification, Semi-Final, Final, etc.).
             - Exclude non-round activities (registration, technical meeting, training, practice, warm-up, isolation opening/closing, ceremony).
-            - Keep round names close to the infosheet wording (but use regular single quotes (') instead of fancy quotes).
             - Every row must include starts_at.
             - Use local venue time in timezone %s.
             - Use YYYY-MM-DD HH:MM format for starts_at and ends_at.
@@ -359,9 +358,17 @@ final readonly class OpenAiInfoSheetClient
             - Also extract ticket info when available:
               - ticket_purchase_url: URL where tickets can be purchased.
               - ticket_price: numeric ticket price only (no currency symbol/code), string format.
-              - ticket_currency: ticket price currency as ISO code when possible (e.g. EUR, USD, CHF), otherwise symbol.
+              - ticket_currency: ticket price currency as ISO code when possible (e.g. EUR, USD, CHF), otherwise symbol. Return "null" when no price can be found
               - ticket_summary: concise attendee-facing summary with ticket notes (for example if entry is free, where to buy tickets, notable conditions/restrictions, and any practical attendee hints).
             - If no ticket information exists, set ticket_purchase_url, ticket_price, ticket_currency, and ticket_summary to null.
+            
+            Round name rules:
+             - Use regular single quotes (') instead of fancy quotes
+             - They should have the first letter of each word capitalized
+             - Keep final, semi-final, and qualification singular (eg "Final" instead of Finals)
+             - Semi Final round names should be spelled as "Semi-Final"
+             - They all should include gender (eg "Men's", "Women's" or "Men's & Women's"), followed by the discipline ("Boulder", "Lead", or "Speed"), followed by "Qualification", "Semi-Final" or "Final".
+               - Some valid examples: "Women's Boulder Final", "Men's & Women's Lead Qualification", "Men's Speed Semi-Final"
             PROMPT,
             $event->eventName,
             $event->localStartDate,
