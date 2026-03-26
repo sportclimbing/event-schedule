@@ -26,7 +26,7 @@ final readonly class StdoutObservabilityListener
         $this->writeLine(sprintf(
             '[+] infosheet pdf downloaded url=%s path=%s status=%d size_bytes=%s',
             $event->url,
-            $event->path,
+            $this->formatPathForOutput($event->path),
             $event->statusCode,
             $event->sizeBytes === null ? 'unknown' : (string) $event->sizeBytes,
         ));
@@ -75,7 +75,7 @@ final readonly class StdoutObservabilityListener
         $this->writeLine(sprintf(
             '[+] infosheet cache file found and used cache_id=%s path=%s',
             $event->cacheId,
-            $event->path,
+            $this->formatPathForOutput($event->path),
         ));
     }
 
@@ -97,5 +97,28 @@ final readonly class StdoutObservabilityListener
 
         fwrite($stream, $message . PHP_EOL);
         fclose($stream);
+    }
+
+    private function formatPathForOutput(string $path): string
+    {
+        $workingDirectory = getcwd();
+
+        if (!is_string($workingDirectory) || trim($workingDirectory) === '') {
+            return $path;
+        }
+
+        $normalizedPath = str_replace('\\', '/', $path);
+        $normalizedWorkingDirectory = rtrim(str_replace('\\', '/', $workingDirectory), '/');
+        $projectPrefix = "{$normalizedWorkingDirectory}/";
+
+        if ($normalizedPath === $normalizedWorkingDirectory) {
+            return '.';
+        }
+
+        if (!str_starts_with($normalizedPath, $projectPrefix)) {
+            return $path;
+        }
+
+        return substr($normalizedPath, strlen($projectPrefix));
     }
 }

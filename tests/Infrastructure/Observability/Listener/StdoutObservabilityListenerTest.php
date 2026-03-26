@@ -22,10 +22,12 @@ final class StdoutObservabilityListenerTest extends TestCase
     {
         $outputPath = sprintf('%s/ifsc-observability-%s.log', sys_get_temp_dir(), uniqid('', true));
         $listener = new StdoutObservabilityListener($outputPath);
+        $projectPath = sprintf('%s/.cache/infosheet.pdf', (string) getcwd());
+        $projectCachePath = sprintf('%s/.cache/cache.json', (string) getcwd());
 
         $listener->onInfoSheetPdfDownloaded(new InfoSheetPdfDownloadedEvent(
             url: 'https://ifsc.results.info/events/1/infosheet.pdf',
-            path: '/tmp/infosheet.pdf',
+            path: $projectPath,
             statusCode: 200,
             sizeBytes: 1234,
         ));
@@ -54,7 +56,7 @@ final class StdoutObservabilityListenerTest extends TestCase
         ));
         $listener->onInfoSheetScheduleCacheHit(new InfoSheetScheduleCacheHitEvent(
             cacheId: 'abc123',
-            path: '/tmp/cache.json',
+            path: $projectCachePath,
         ));
         $listener->onScheduleGenerationFinished(new ScheduleGenerationFinishedEvent(
             outputFilePath: '/tmp/events.json',
@@ -63,10 +65,12 @@ final class StdoutObservabilityListenerTest extends TestCase
         $output = (string) file_get_contents($outputPath);
 
         self::assertStringContainsString('infosheet pdf downloaded', $output);
+        self::assertStringContainsString('path=.cache/infosheet.pdf', $output);
         self::assertStringContainsString('infosheet pdf download failed', $output);
         self::assertStringContainsString('openai request succeeded', $output);
         self::assertStringContainsString('openai request failed', $output);
         self::assertStringContainsString('infosheet cache file found and used', $output);
+        self::assertStringContainsString('path=.cache/cache.json', $output);
         self::assertStringContainsString('schedule generation finished', $output);
 
         @unlink($outputPath);

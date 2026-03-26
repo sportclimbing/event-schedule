@@ -35,9 +35,16 @@ final readonly class RecentEventsScheduleSyncService
     /** @return array<array<string,mixed>> */
     public function sync(
         int $seasonYear,
-        array $leagueSeasonIds,
+        array $leagueSeasonIds = [],
         bool $forceRescan = false,
     ): array {
+        if ($leagueSeasonIds === []) {
+            $leagueSeasonIds = array_map(
+                static fn (SupportedLeagueSeason $leagueSeason): int => $leagueSeason->value,
+                SupportedLeagueSeason::defaults(),
+            );
+        }
+
         $availableLeagues = $this->recentLeagueProvider->fetchRecentLeagueIds($seasonYear);
         $resolvedLeagueSeasonIds = $this->resolveLeagueSeasonIdsForSeason(
             requestedLeagueSeasonIds: $leagueSeasonIds,
