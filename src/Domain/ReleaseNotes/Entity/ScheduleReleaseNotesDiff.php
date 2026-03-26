@@ -20,6 +20,9 @@ final readonly class ScheduleReleaseNotesDiff
         public array $addedEvents,
         public array $removedEvents,
         public array $changedEvents,
+        public int $addedRoundsCount,
+        public int $removedRoundsCount,
+        public int $changedRoundsCount,
     ) {
     }
 

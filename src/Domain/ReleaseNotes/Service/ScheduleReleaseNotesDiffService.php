@@ -32,6 +32,9 @@ final class ScheduleReleaseNotesDiffService
         $addedIds = array_values(array_diff($currentIds, $previousIds));
         $removedIds = array_values(array_diff($previousIds, $currentIds));
         $commonIds = array_values(array_intersect($currentIds, $previousIds));
+        $addedRoundsCount = 0;
+        $removedRoundsCount = 0;
+        $changedRoundsCount = 0;
 
         /** @var ReleaseNotesEvent[] $addedEvents */
         $addedEvents = [];
@@ -42,6 +45,7 @@ final class ScheduleReleaseNotesDiffService
                 eventId: $this->eventIdText($event),
                 eventName: $this->eventNameText($event),
             );
+            $addedRoundsCount += count($this->extractRounds($event));
         }
 
         /** @var ReleaseNotesEvent[] $removedEvents */
@@ -53,6 +57,7 @@ final class ScheduleReleaseNotesDiffService
                 eventId: $this->eventIdText($event),
                 eventName: $this->eventNameText($event),
             );
+            $removedRoundsCount += count($this->extractRounds($event));
         }
 
         /** @var ReleaseNotesChangedEvent[] $changedEvents */
@@ -61,6 +66,10 @@ final class ScheduleReleaseNotesDiffService
         foreach ($commonIds as $eventId) {
             $oldEvent = $previousById[$eventId];
             $newEvent = $currentById[$eventId];
+            $roundsDiff = $this->countRoundDiff($oldEvent, $newEvent);
+            $addedRoundsCount += $roundsDiff['added'];
+            $removedRoundsCount += $roundsDiff['removed'];
+            $changedRoundsCount += $roundsDiff['changed'];
 
             if ($this->eventsEqual($oldEvent, $newEvent)) {
                 continue;
@@ -79,6 +88,9 @@ final class ScheduleReleaseNotesDiffService
             addedEvents: $addedEvents,
             removedEvents: $removedEvents,
             changedEvents: $changedEvents,
+            addedRoundsCount: $addedRoundsCount,
+            removedRoundsCount: $removedRoundsCount,
+            changedRoundsCount: $changedRoundsCount,
         );
     }
 
@@ -243,6 +255,69 @@ final class ScheduleReleaseNotesDiffService
         $segment = str_replace('_', ' ', $key);
 
         return $currentPath === '' ? $segment : "{$currentPath}.{$segment}";
+    }
+
+    /**
+     * @param array<string,mixed> $oldEvent
+     * @param array<string,mixed> $newEvent
+     * @return array{added:int,removed:int,changed:int}
+     */
+    private function countRoundDiff(array $oldEvent, array $newEvent): array
+    {
+        $oldRounds = $this->extractRounds($oldEvent);
+        $newRounds = $this->extractRounds($newEvent);
+        $maxRounds = max(count($oldRounds), count($newRounds));
+        $added = 0;
+        $removed = 0;
+        $changed = 0;
+
+        for ($index = 0; $index < $maxRounds; $index++) {
+            $oldRound = $oldRounds[$index] ?? null;
+            $newRound = $newRounds[$index] ?? null;
+
+            if ($oldRound === null && $newRound !== null) {
+                $added++;
+
+                continue;
+            }
+
+            if ($oldRound !== null && $newRound === null) {
+                $removed++;
+
+                continue;
+            }
+
+            if ($oldRound !== null && $newRound !== null && !$this->valuesEqual($oldRound, $newRound)) {
+                $changed++;
+            }
+        }
+
+        return [
+            'added' => $added,
+            'removed' => $removed,
+            'changed' => $changed,
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $event
+     * @return array<int,array<string,mixed>>
+     */
+    private function extractRounds(array $event): array
+    {
+        $schedule = $event['schedule'] ?? null;
+
+        if (!is_array($schedule)) {
+            return [];
+        }
+
+        /** @var array<int,array<string,mixed>> $rounds */
+        $rounds = array_values(array_filter(
+            $schedule,
+            static fn (mixed $round): bool => is_array($round),
+        ));
+
+        return $rounds;
     }
 
     private function valuesEqual(mixed $left, mixed $right): bool

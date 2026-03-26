@@ -30,14 +30,28 @@ composer install
 Command:
 
 ```bash
-php bin/generate-schedule --season 2026 --outfile events-with-schedules.json
+php bin/generate-schedule \
+  --season 2026 \
+  --outfile events-with-schedules.json
 ```
 
 Notes:
 
 - `--season` is required
 - `--outfile` is required
-- if no league flags are provided, all supported league season ids are included
+
+
+- OpenAI runtime options are optional:
+  - `--openai-model` (default: `gpt-5-mini`)
+  - `--openai-temperature` (default: `0`)
+  - `--openai-top-p` (default: `1`)
+  - `--openai-http-timeout` (default: `120`)
+  - `--openai-http-connect-timeout` (default: `10`)
+  - `--openai-http-max-retries` (default: `4`)
+  - `--openai-http-retry-backoff-ms` (default: `500`)
+
+
+- if no `--league` options are provided, all supported league season ids are included
   - world cups (`457`)
   - games (`318`)
   - paraclimbing (`438`)
@@ -52,7 +66,7 @@ php bin/generate-schedule --season 2026 --outfile events-with-schedules.json
 php bin/generate-schedule --season 2026 --force-rescan --outfile events-with-schedules.json
 
 # only selected leagues
-php bin/generate-schedule --season 2026 --world-cups --games --outfile events-with-schedules.json
+php bin/generate-schedule --season 2026 --league world-cups --league games --outfile events-with-schedules.json
 ```
 
 ## Generate Release Notes (Diff Two JSON Files)
@@ -69,11 +83,6 @@ php bin/generate-schedule-release-notes \
 ## Environment Variables
 
 - `OPENAI_API_KEY` (required): OpenAI API key used to parse infosheet PDFs
-- `OPENAI_MODEL` (default: `gpt-5-mini`): OpenAI model
-- `OPENAI_HTTP_TIMEOUT` (default: `120`): HTTP timeout (seconds)
-- `OPENAI_HTTP_CONNECT_TIMEOUT` (default: `10`): HTTP connect timeout (seconds)
-- `OPENAI_HTTP_MAX_RETRIES` (default: `4`): maximum retry attempts
-- `OPENAI_HTTP_RETRY_BACKOFF_MS` (default: `500`): base retry backoff in milliseconds
 - `IFSC_INFOSHEET_CACHE_DIR` (default: `.cache/infosheet`): parsed infosheet cache directory
 - `IFSC_INFOSHEET_PDF_CACHE_DIR` (default: `.cache/infosheet/pdf`): downloaded infosheet PDF directory
 - `IFSC_INFOSHEET_CACHE_LAST_MODIFIED_DAYS` (default: `21`): stale-window days for URL-based fallback cache usage

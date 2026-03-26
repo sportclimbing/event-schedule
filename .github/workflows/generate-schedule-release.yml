@@ -58,9 +58,7 @@ jobs:
         run: |
           force_rescan_input="${{ github.event.inputs.force_rescan }}"
 
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            force_rescan="true"
-          elif [ "${force_rescan_input}" = "true" ]; then
+          if [ "${force_rescan_input}" = "true" ]; then
             force_rescan="true"
           else
             force_rescan="false"
@@ -83,15 +81,18 @@ jobs:
         run: |
           cmd=(php bin/generate-schedule \
             --season "${{ steps.season.outputs.value }}" \
-            --world-cups \
-            --games \
-            --paraclimbing)
+            --league world-cups \
+            --league games \
+            --league paraclimbing \
+            --outfile events-with-schedules.json \
+            --openai-model gpt-5-mini \
+            --openai-temperature 0 \
+            --openai-top-p 1)
 
           if [ "${{ steps.force_rescan.outputs.value }}" = "true" ]; then
             cmd+=(--force-rescan)
           fi
 
-          cmd+=(--outfile events-with-schedules.json)
           "${cmd[@]}"
 
       - name: "Save infosheet cache"

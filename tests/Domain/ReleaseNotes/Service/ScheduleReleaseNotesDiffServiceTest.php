@@ -32,6 +32,9 @@ final class ScheduleReleaseNotesDiffServiceTest extends TestCase
         self::assertSame(1, $diff->addedCount());
         self::assertSame(1, $diff->removedCount());
         self::assertSame(1, $diff->changedCount());
+        self::assertSame(0, $diff->addedRoundsCount);
+        self::assertSame(0, $diff->removedRoundsCount);
+        self::assertSame(0, $diff->changedRoundsCount);
         self::assertSame('3', $diff->addedEvents[0]->eventId);
         self::assertSame('C', $diff->addedEvents[0]->eventName);
         self::assertSame('2', $diff->removedEvents[0]->eventId);
@@ -57,6 +60,9 @@ final class ScheduleReleaseNotesDiffServiceTest extends TestCase
         self::assertSame(0, $diff->addedCount());
         self::assertSame(0, $diff->removedCount());
         self::assertSame(0, $diff->changedCount());
+        self::assertSame(0, $diff->addedRoundsCount);
+        self::assertSame(0, $diff->removedRoundsCount);
+        self::assertSame(0, $diff->changedRoundsCount);
     }
 
     public function testDiffFlattensNestedChangesToFieldPathAndRawValues(): void
@@ -83,9 +89,39 @@ final class ScheduleReleaseNotesDiffServiceTest extends TestCase
         );
 
         self::assertSame(1, $diff->changedCount());
+        self::assertSame(0, $diff->addedRoundsCount);
+        self::assertSame(0, $diff->removedRoundsCount);
+        self::assertSame(1, $diff->changedRoundsCount);
         self::assertCount(1, $diff->changedEvents[0]->changes);
         self::assertSame('schedule[0].starts at', $diff->changedEvents[0]->changes[0]->field);
         self::assertSame('2026-06-20 19:00', $diff->changedEvents[0]->changes[0]->oldValue);
         self::assertSame('2026-06-20 20:00', $diff->changedEvents[0]->changes[0]->newValue);
+    }
+
+    public function testDiffCountsAddedAndRemovedRoundsAcrossAddedAndRemovedEvents(): void
+    {
+        $service = new ScheduleReleaseNotesDiffService();
+
+        $diff = $service->diff(
+            previousEvents: [[
+                'event_id' => 10,
+                'event_name' => 'Old Event',
+                'schedule' => [[
+                    'name' => 'Round A',
+                ]],
+            ]],
+            currentEvents: [[
+                'event_id' => 11,
+                'event_name' => 'New Event',
+                'schedule' => [
+                    ['name' => 'Round B'],
+                    ['name' => 'Round C'],
+                ],
+            ]],
+        );
+
+        self::assertSame(2, $diff->addedRoundsCount);
+        self::assertSame(1, $diff->removedRoundsCount);
+        self::assertSame(0, $diff->changedRoundsCount);
     }
 }

@@ -7,6 +7,7 @@
  */
 namespace SportClimbing\EventDetails\Infrastructure\Observability\Listener;
 
+use SportClimbing\EventDetails\Domain\Event\Entity\ScheduleGenerationFinishedEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetScheduleCacheHitEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadFailedEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadedEvent;
@@ -75,6 +76,14 @@ final readonly class StdoutObservabilityListener
             '[+] infosheet cache file found and used cache_id=%s path=%s',
             $event->cacheId,
             $event->path,
+        ));
+    }
+
+    public function onScheduleGenerationFinished(ScheduleGenerationFinishedEvent $event): void
+    {
+        $this->writeLine(sprintf(
+            '[+] schedule generation finished output_file=%s',
+            $event->outputFilePath,
         ));
     }
 

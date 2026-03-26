@@ -25,6 +25,9 @@ final class MarkdownScheduleReleaseNotesRenderer
         $lines[] = sprintf('| Added events | %d |', $diff->addedCount());
         $lines[] = sprintf('| Removed events | %d |', $diff->removedCount());
         $lines[] = sprintf('| Changed events | %d |', $diff->changedCount());
+        $lines[] = sprintf('| Added rounds | %d |', $diff->addedRoundsCount);
+        $lines[] = sprintf('| Removed rounds | %d |', $diff->removedRoundsCount);
+        $lines[] = sprintf('| Changed rounds | %d |', $diff->changedRoundsCount);
 
         if ($diff->addedEvents !== []) {
             $lines[] = '';

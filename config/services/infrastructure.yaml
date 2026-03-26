@@ -4,6 +4,7 @@ services:
     autoconfigure: true
 
   Symfony\Component\EventDispatcher\EventDispatcher:
+    public: true
     calls:
       - method: addListener
         arguments:
@@ -25,9 +26,14 @@ services:
         arguments:
           - 'SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetScheduleCacheHitEvent'
           - ['@SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener', 'onInfoSheetScheduleCacheHit']
+      - method: addListener
+        arguments:
+          - 'SportClimbing\EventDetails\Domain\Event\Entity\ScheduleGenerationFinishedEvent'
+          - ['@SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener', 'onScheduleGenerationFinished']
 
   Symfony\Contracts\EventDispatcher\EventDispatcherInterface:
     alias: Symfony\Component\EventDispatcher\EventDispatcher
+    public: true
 
   SportClimbing\EventDetails\Infrastructure\Observability\Listener\StdoutObservabilityListener: ~
 

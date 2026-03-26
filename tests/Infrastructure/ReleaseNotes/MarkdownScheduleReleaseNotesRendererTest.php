@@ -31,6 +31,9 @@ final class MarkdownScheduleReleaseNotesRendererTest extends TestCase
                     new ReleaseNotesFieldChange('event name', 'A', 'A Updated'),
                 ],
             )],
+            addedRoundsCount: 1,
+            removedRoundsCount: 2,
+            changedRoundsCount: 3,
         );
 
         $markdown = $renderer->render($diff, '/tmp/previous.json', '/tmp/current.json');
@@ -40,6 +43,9 @@ final class MarkdownScheduleReleaseNotesRendererTest extends TestCase
         self::assertStringContainsString('| Current file | `/tmp/current.json` |', $markdown);
         self::assertStringContainsString('## Added Events', $markdown);
         self::assertStringContainsString('| 3 | C |', $markdown);
+        self::assertStringContainsString('| Added rounds | 1 |', $markdown);
+        self::assertStringContainsString('| Removed rounds | 2 |', $markdown);
+        self::assertStringContainsString('| Changed rounds | 3 |', $markdown);
         self::assertStringContainsString('## Removed Events', $markdown);
         self::assertStringContainsString('| 2 | B |', $markdown);
         self::assertStringContainsString('## Changed Events', $markdown);
@@ -61,6 +67,9 @@ final class MarkdownScheduleReleaseNotesRendererTest extends TestCase
                     new ReleaseNotesFieldChange('schedule', [['name' => 'Final']], [['name' => 'Semi']]),
                 ],
             )],
+            addedRoundsCount: 0,
+            removedRoundsCount: 0,
+            changedRoundsCount: 1,
         );
 
         $markdown = $renderer->render($diff, '/tmp/previous.json', '/tmp/current.json');

@@ -96,4 +96,13 @@ final class SymfonyServiceContainerFactoryTest extends TestCase
             (string) $container->getAlias(EventDispatcherInterface::class),
         );
     }
+
+    public function testCreateKeepsEventDispatcherAvailableAtRuntime(): void
+    {
+        $container = (new SymfonyServiceContainerFactory())->create();
+
+        self::assertTrue($container->has(EventDispatcherInterface::class));
+        self::assertTrue($container->has(EventDispatcher::class));
+        self::assertInstanceOf(EventDispatcher::class, $container->get(EventDispatcherInterface::class));
+    }
 }

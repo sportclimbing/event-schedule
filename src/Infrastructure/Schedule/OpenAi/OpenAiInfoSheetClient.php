@@ -22,52 +22,94 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Throwable;
 
-final readonly class OpenAiInfoSheetClient
+final class OpenAiInfoSheetClient
 {
     private const string OPENAI_FILES_URL = 'https://api.openai.com/v1/files';
     private const string OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
     private const string OPENAI_FILE_DELETE_URL = 'https://api.openai.com/v1/files/%s';
     private const string OPENAI_FILE_PURPOSE = 'user_data';
     private const string DEFAULT_MODEL = 'gpt-5-mini';
+    private const float DEFAULT_TEMPERATURE = 0.0;
+    private const float DEFAULT_TOP_P = 1.0;
     private const int DEFAULT_HTTP_TIMEOUT_SECONDS = 120;
     private const int DEFAULT_CONNECT_TIMEOUT_SECONDS = 10;
     private const int DEFAULT_MAX_RETRIES = 4;
     private const int DEFAULT_RETRY_BACKOFF_MILLISECONDS = 500;
     private const int MAX_RETRY_BACKOFF_MILLISECONDS = 10_000;
-    private const int PDF_SIGNATURE_LENGTH = 5;
 
     private string $openAiApiKey;
     private string $model;
+    private float $temperature;
+    private bool $temperatureConfigured;
+    private float $topP;
     private int $httpTimeoutSeconds;
     private int $connectTimeoutSeconds;
     private int $maxRetries;
     private int $retryBackoffMilliseconds;
     private EventDispatcherInterface $eventDispatcher;
+    private OpenAiInfoSheetPromptBuilder $promptBuilder;
+    private OpenAiInfoSheetResponseSchemaFactory $responseSchemaFactory;
+    private OpenAiInfoSheetPdfContentBuilder $pdfContentBuilder;
 
     public function __construct(
-        private ClientInterface $httpClient,
+        private readonly ClientInterface $httpClient,
         ?EventDispatcherInterface $eventDispatcher = null,
+        ?OpenAiInfoSheetPromptBuilder $promptBuilder = null,
+        ?OpenAiInfoSheetResponseSchemaFactory $responseSchemaFactory = null,
+        ?OpenAiInfoSheetPdfContentBuilder $pdfContentBuilder = null,
     ) {
         $this->eventDispatcher = $eventDispatcher ?? new EventDispatcher();
+        $this->promptBuilder = $promptBuilder ?? new OpenAiInfoSheetPromptBuilder();
+        $this->responseSchemaFactory = $responseSchemaFactory ?? new OpenAiInfoSheetResponseSchemaFactory();
+        $this->pdfContentBuilder = $pdfContentBuilder ?? new OpenAiInfoSheetPdfContentBuilder();
         $this->openAiApiKey = $this->readEnvironmentVariable('OPENAI_API_KEY');
-        $model = $this->readEnvironmentVariable('OPENAI_MODEL');
-        $this->model = $model !== '' ? $model : self::DEFAULT_MODEL;
-        $this->httpTimeoutSeconds = $this->readPositiveIntEnvironmentVariable(
-            'OPENAI_HTTP_TIMEOUT',
-            self::DEFAULT_HTTP_TIMEOUT_SECONDS,
-        );
-        $this->connectTimeoutSeconds = $this->readPositiveIntEnvironmentVariable(
-            'OPENAI_HTTP_CONNECT_TIMEOUT',
-            self::DEFAULT_CONNECT_TIMEOUT_SECONDS,
-        );
-        $this->maxRetries = $this->readNonNegativeIntEnvironmentVariable(
-            'OPENAI_HTTP_MAX_RETRIES',
-            self::DEFAULT_MAX_RETRIES,
-        );
-        $this->retryBackoffMilliseconds = $this->readNonNegativeIntEnvironmentVariable(
-            'OPENAI_HTTP_RETRY_BACKOFF_MS',
-            self::DEFAULT_RETRY_BACKOFF_MILLISECONDS,
-        );
+        $this->model = self::DEFAULT_MODEL;
+        $this->temperature = self::DEFAULT_TEMPERATURE;
+        $this->temperatureConfigured = false;
+        $this->topP = self::DEFAULT_TOP_P;
+        $this->httpTimeoutSeconds = self::DEFAULT_HTTP_TIMEOUT_SECONDS;
+        $this->connectTimeoutSeconds = self::DEFAULT_CONNECT_TIMEOUT_SECONDS;
+        $this->maxRetries = self::DEFAULT_MAX_RETRIES;
+        $this->retryBackoffMilliseconds = self::DEFAULT_RETRY_BACKOFF_MILLISECONDS;
+    }
+
+    public function applyRuntimeConfiguration(
+        ?string $model = null,
+        ?float $temperature = null,
+        ?float $topP = null,
+        ?int $httpTimeoutSeconds = null,
+        ?int $connectTimeoutSeconds = null,
+        ?int $maxRetries = null,
+        ?int $retryBackoffMilliseconds = null,
+    ): void {
+        if (is_string($model) && trim($model) !== '') {
+            $this->model = trim($model);
+        }
+
+        if (is_float($temperature)) {
+            $this->temperature = $this->clampFloat((float) $temperature, 0.0, 2.0);
+            $this->temperatureConfigured = true;
+        }
+
+        if (is_float($topP)) {
+            $this->topP = $this->clampFloat((float) $topP, 0.0, 1.0);
+        }
+
+        if (is_int($httpTimeoutSeconds)) {
+            $this->httpTimeoutSeconds = max(1, $httpTimeoutSeconds);
+        }
+
+        if (is_int($connectTimeoutSeconds)) {
+            $this->connectTimeoutSeconds = max(1, $connectTimeoutSeconds);
+        }
+
+        if (is_int($maxRetries)) {
+            $this->maxRetries = max(0, $maxRetries);
+        }
+
+        if (is_int($retryBackoffMilliseconds)) {
+            $this->retryBackoffMilliseconds = max(0, $retryBackoffMilliseconds);
+        }
     }
 
     /**
@@ -87,85 +129,41 @@ final readonly class OpenAiInfoSheetClient
             );
         }
 
-        $strategies = [
-            [
-                'name' => 'full_schema',
-                'input_source' => 'file_id',
-                'schema' => $this->responseSchema(),
-                'strict' => false,
-                'content_items' => [
-                    $this->buildFileIdInputContent($fileId),
-                    $this->buildPromptInputContent($this->buildPrompt($event)),
+        $contentInputItem = $this->buildFileIdInputContent($fileId);
+        $inputSource = 'file_id';
+        $normalizedPdfPath = is_string($pdfPath) ? trim($pdfPath) : '';
+
+        if ($normalizedPdfPath !== '' && is_file($normalizedPdfPath)) {
+            $contentInputItem = $this->pdfContentBuilder->buildPdfDataInputContent($normalizedPdfPath);
+            $inputSource = 'pdf_data';
+        }
+
+        try {
+            $schedule = $this->requestSchedulePayload(
+                contentItems: [
+                    $contentInputItem,
+                    $this->buildPromptInputContent($this->promptBuilder->buildSchedulePrompt($event)),
                 ],
-            ],
-        ];
+                schema: $this->responseSchemaFactory->buildScheduleSchema(),
+                strict: false,
+            );
 
-        if (is_string($pdfPath) && trim($pdfPath) !== '') {
-            try {
-                $strategies[] = [
-                    'name' => 'rounds_only_pdf_data_fallback',
-                    'input_source' => 'pdf_data',
-                    'schema' => $this->roundsOnlyResponseSchema(),
-                    'strict' => false,
-                    'content_items' => [
-                        $this->buildPdfDataInputContent($pdfPath),
-                        $this->buildPromptInputContent($this->buildRoundsOnlyPrompt($event)),
-                    ],
-                ];
-            } catch (InfoSheetChatGptScheduleParserException) {
-                // Ignore PDF data fallback when the local file cannot be prepared.
-            }
+            return $this->normalizeSchedulePayload($schedule);
+        } catch (Throwable $exception) {
+            throw new InfoSheetChatGptScheduleParserException(
+                sprintf(
+                    'Unable to parse infosheet with ChatGPT after 1 attempt(s). %s',
+                    $this->describeParseFailure(
+                        exception: $exception,
+                        fileId: $fileId,
+                        strategy: 'full_schema',
+                        inputSource: $inputSource,
+                    ),
+                ),
+                0,
+                $exception,
+            );
         }
-
-        $strategies[] = [
-            'name' => 'rounds_only_fallback',
-            'input_source' => 'file_id',
-            'schema' => $this->roundsOnlyResponseSchema(),
-            'strict' => false,
-            'content_items' => [
-                $this->buildFileIdInputContent($fileId),
-                $this->buildPromptInputContent($this->buildRoundsOnlyPrompt($event)),
-            ],
-        ];
-
-        $failures = [];
-        $lastException = null;
-
-        foreach ($strategies as $index => $strategy) {
-            try {
-                $schedule = $this->requestSchedulePayload(
-                    contentItems: $strategy['content_items'],
-                    schema: $strategy['schema'],
-                    strict: $strategy['strict'],
-                );
-
-                return $this->normalizeSchedulePayload($schedule);
-            } catch (Throwable $exception) {
-                $failures[] = $this->describeParseFailure(
-                    exception: $exception,
-                    fileId: $fileId,
-                    strategy: $strategy['name'],
-                    inputSource: $strategy['input_source'],
-                );
-                $lastException = $exception;
-
-                $hasMoreStrategies = $index < (count($strategies) - 1);
-
-                if (!$hasMoreStrategies || !$this->shouldAttemptNextParseStrategy($exception)) {
-                    break;
-                }
-            }
-        }
-
-        throw new InfoSheetChatGptScheduleParserException(
-            sprintf(
-                'Unable to parse infosheet with ChatGPT after %d attempt(s). %s',
-                count($failures),
-                implode(' || ', $failures),
-            ),
-            0,
-            $lastException instanceof Throwable ? $lastException : null,
-        );
     }
 
     /** @throws InfoSheetChatGptScheduleParserException */
@@ -177,7 +175,7 @@ final readonly class OpenAiInfoSheetClient
             );
         }
 
-        $pdfDiagnostics = $this->readPdfDiagnostics($pdfPath);
+        $pdfDiagnostics = $this->pdfContentBuilder->readPdfDiagnostics($pdfPath);
 
         $stream = fopen($pdfPath, 'rb');
 
@@ -208,7 +206,7 @@ final readonly class OpenAiInfoSheetClient
                             [
                                 'name' => 'file',
                                 'contents' => $stream,
-                                'filename' => $this->asPdfFilename($pdfPath),
+                                'filename' => $this->pdfContentBuilder->asPdfFilename($pdfPath),
                                 'headers' => ['Content-Type' => 'application/pdf'],
                             ],
                         ],
@@ -269,155 +267,6 @@ final readonly class OpenAiInfoSheetClient
             );
         } catch (GuzzleException) {
         }
-    }
-
-    /** @return array<string,mixed> */
-    private function responseSchema(): array
-    {
-        return [
-            'type' => 'object',
-            'additionalProperties' => false,
-            'properties' => [
-                'rounds' => [
-                    'type' => 'array',
-                    'items' => [
-                        'type' => 'object',
-                        'additionalProperties' => false,
-                        'properties' => [
-                            'name' => ['type' => 'string'],
-                            'starts_at' => ['type' => 'string'],
-                            'ends_at' => [
-                                'type' => ['string', 'null'],
-                            ],
-                        ],
-                        'required' => ['name', 'starts_at', 'ends_at'],
-                    ],
-                ],
-                'ticket_purchase_url' => [
-                    'type' => ['string', 'null'],
-                ],
-                'ticket_price' => [
-                    'type' => ['string', 'null'],
-                ],
-                'ticket_currency' => [
-                    'type' => ['string', 'null'],
-                ],
-                'ticket_summary' => [
-                    'type' => ['string', 'null'],
-                ],
-            ],
-            'required' => ['rounds'],
-        ];
-    }
-
-    /** @return array<string,mixed> */
-    private function roundsOnlyResponseSchema(): array
-    {
-        return [
-            'type' => 'object',
-            'additionalProperties' => false,
-            'properties' => [
-                'rounds' => [
-                    'type' => 'array',
-                    'items' => [
-                        'type' => 'object',
-                        'additionalProperties' => false,
-                        'properties' => [
-                            'name' => ['type' => 'string'],
-                            'starts_at' => ['type' => 'string'],
-                            'ends_at' => [
-                                'type' => ['string', 'null'],
-                            ],
-                        ],
-                        'required' => ['name', 'starts_at', 'ends_at'],
-                    ],
-                ],
-            ],
-            'required' => ['rounds'],
-        ];
-    }
-
-    private function buildPrompt(EventInfo $event): string
-    {
-        return sprintf(
-            <<<PROMPT
-            Parse the attached IFSC infosheet PDF and extract the competition round schedule/programme.
-            Schedule might be split on multiple pages.
-
-            Event context:
-            - Event: %s
-            - Local date range: %s to %s
-            - Timezone: %s
-            - Discipline: %s
-
-            Output rules:
-            - Return only official competition rounds (Qualification, Semi-Final, Final, etc.).
-            - Exclude non-round activities (registration, technical meeting, training, practice, warm-up, isolation opening/closing, ceremony).
-            - Every row must include starts_at.
-            - Use local venue time in timezone %s.
-            - Use YYYY-MM-DD HH:MM format for starts_at and ends_at.
-              - If it says "12:00 – 13:00" for example, it means "starts_at" is 12:00 and "ends_at" is 13:00.
-              - Sometimes it might say "18.30" for example when it means "18:30"
-            - Set ends_at to null when no end time is provided.
-            - Also extract ticket info when available:
-              - ticket_purchase_url: URL where tickets can be purchased.
-              - ticket_price: numeric ticket price only (no currency symbol/code), string format.
-              - ticket_currency: ticket price currency as ISO code when possible (e.g. EUR, USD, CHF), otherwise convert symbol to ISO code. Return "null" when no price can be found
-              - ticket_summary: concise attendee-facing summary with ticket notes (for example if entry is free, where to buy tickets, notable conditions/restrictions, and any practical attendee hints).
-                - Look well, this should never be empty. There is always info regarding tickets, even if it's just TBA or similar
-            - If no ticket information exists, set ticket_purchase_url, ticket_price, ticket_currency, and ticket_summary to null.
-            - Don't use hyphens (—) or emojis
-            
-            Round name rules:
-             - Use regular single quotes (') instead of fancy quotes
-             - They should have the first letter of each word capitalized
-             - Keep the words "Final", "Semi-Final", and "Qualification" singular (eg "Final" instead of Finals)
-             - Semi Final round names should be spelled as "Semi-Final"
-             - They all should include gender (eg "Men's", "Women's" or "Men's & Women's"), followed by the discipline ("Boulder", "Lead", or "Speed"), followed by "Qualification", "Semi-Final" or "Final".
-               - Some valid examples:
-                 - "Women's Boulder Final"
-                 - "Men's & Women's Lead Qualification"
-                 - "Men's Speed Semi-Final"
-             - If a round name can't be found, take your best guess keeping the above format. Never leave it empty/null
-             - If gender is not specified or it says "Mixed", assume it's "Men's & Women's"
-             
-            No mistakes! 
-            PROMPT,
-            $event->eventName,
-            $event->localStartDate,
-            $event->localEndDate,
-            $event->timeZone->getName(),
-            $event->timeZone->getName(),
-            implode(', ', $event->disciplines),
-        );
-    }
-
-    private function buildRoundsOnlyPrompt(EventInfo $event): string
-    {
-        return sprintf(
-            <<<PROMPT
-            Parse the attached IFSC infosheet PDF and extract the competition round schedule only.
-
-            Event context:
-            - Event: %s
-            - Local date range: %s to %s
-            - Timezone: %s
-
-            Output rules:
-            - Return only official competition rounds (Qualification, Semi-Final, Final, etc.).
-            - Exclude non-round activities (registration, technical meeting, training, practice, warm-up, isolation opening/closing, ceremony).
-            - Keep round names close to the infosheet wording.
-            - Every row must include starts_at.
-            - Use local venue time in timezone %s.
-            - Use YYYY-MM-DD HH:MM format for starts_at and ends_at.
-            - Set ends_at to null when no end time is provided.
-            PROMPT,
-            $event->eventName,
-            $event->localStartDate,
-            $event->localEndDate,
-            $event->timeZone->getName(),
-            $event->timeZone->getName(),
-        );
     }
 
     /** @return array<string,string> */
@@ -533,17 +382,6 @@ final readonly class OpenAiInfoSheetClient
         }
 
         return null;
-    }
-
-    private function asPdfFilename(string $pdfPath): string
-    {
-        $filename = basename($pdfPath);
-
-        if (str_ends_with(strtolower($filename), '.pdf')) {
-            return $filename;
-        }
-
-        return "{$filename}.pdf";
     }
 
     /**
@@ -718,108 +556,6 @@ final readonly class OpenAiInfoSheetClient
         ];
     }
 
-    /**
-     * @return array{type:string,filename:string,file_data:string}
-     * @throws InfoSheetChatGptScheduleParserException
-     */
-    private function buildPdfDataInputContent(string $pdfPath): array
-    {
-        $this->readPdfDiagnostics($pdfPath);
-        $pdfData = @file_get_contents($pdfPath);
-
-        if (!is_string($pdfData) || $pdfData === '') {
-            throw new InfoSheetChatGptScheduleParserException(
-                sprintf(
-                    'Unable to read PDF content for inline fallback (%s)',
-                    $this->formatContext([
-                        'step' => 'parse_schedule',
-                        'parse_strategy' => 'rounds_only_pdf_data_fallback',
-                        'pdf_path' => $pdfPath,
-                    ]),
-                ),
-            );
-        }
-
-        return [
-            'type' => 'input_file',
-            'filename' => $this->asPdfFilename($pdfPath),
-            'file_data' => sprintf('data:application/pdf;base64,%s', base64_encode($pdfData)),
-        ];
-    }
-
-    /**
-     * @return array{
-     *   pdf_path:string,
-     *   pdf_exists:bool,
-     *   pdf_readable:bool,
-     *   pdf_size_bytes:?int,
-     *   pdf_sha256:?string,
-     *   pdf_signature:?string
-     * }
-     * @throws InfoSheetChatGptScheduleParserException
-     */
-    private function readPdfDiagnostics(string $pdfPath): array
-    {
-        $normalizedPath = trim($pdfPath);
-        $exists = is_file($normalizedPath);
-        $readable = $exists && is_readable($normalizedPath);
-        $size = $readable ? @filesize($normalizedPath) : null;
-        $hash = $readable ? @hash_file('sha256', $normalizedPath) : null;
-
-        $signature = null;
-
-        if ($readable) {
-            $header = @file_get_contents($normalizedPath, false, null, 0, self::PDF_SIGNATURE_LENGTH);
-
-            if (is_string($header) && $header !== '') {
-                $signature = trim($header) !== '' ? $header : null;
-            }
-        }
-
-        $diagnostics = [
-            'pdf_path' => $normalizedPath,
-            'pdf_exists' => $exists,
-            'pdf_readable' => $readable,
-            'pdf_size_bytes' => is_int($size) ? $size : null,
-            'pdf_sha256' => is_string($hash) && trim($hash) !== '' ? $hash : null,
-            'pdf_signature' => $signature,
-        ];
-
-        if (!$exists || !$readable || !is_int($size) || $size <= 0) {
-            throw new InfoSheetChatGptScheduleParserException(
-                sprintf(
-                    'Infosheet PDF precheck failed (%s)',
-                    $this->formatContext([
-                        'step' => 'upload_precheck',
-                        ...$diagnostics,
-                    ]),
-                ),
-            );
-        }
-
-        return $diagnostics;
-    }
-
-    private function shouldAttemptNextParseStrategy(Throwable $exception): bool
-    {
-        if ($exception instanceof GuzzleException) {
-            return $this->isServerSideRequestException($exception);
-        }
-
-        return $exception instanceof InfoSheetChatGptScheduleParserException;
-    }
-
-    private function isServerSideRequestException(GuzzleException $exception): bool
-    {
-        if (!$exception instanceof RequestException) {
-            return false;
-        }
-
-        $statusCode = $exception->getResponse()?->getStatusCode();
-
-        return $statusCode !== null && $statusCode >= 500 && $statusCode <= 599;
-    }
-
     private function describeParseFailure(
         Throwable $exception,
         string $fileId,
@@ -868,21 +604,11 @@ final readonly class OpenAiInfoSheetClient
             uri: self::OPENAI_RESPONSES_URL,
             options: [
                 RequestOptions::HEADERS => $this->jsonHeaders(),
-                RequestOptions::JSON => [
-                    'model' => $this->model,
-                    'input' => [[
-                        'role' => 'user',
-                        'content' => $contentItems,
-                    ]],
-                    'text' => [
-                        'format' => [
-                            'type' => 'json_schema',
-                            'name' => 'ifsc_infosheet_schedule',
-                            'schema' => $schema,
-                            'strict' => $strict,
-                        ],
-                    ],
-                ],
+                RequestOptions::JSON => $this->buildResponseRequestPayload(
+                    contentItems: $contentItems,
+                    schema: $schema,
+                    strict: $strict,
+                ),
             ],
         );
 
@@ -900,6 +626,40 @@ final readonly class OpenAiInfoSheetClient
         }
 
         return $schedule;
+    }
+
+    /**
+     * @param array<array<string,mixed>> $contentItems
+     * @param array<string,mixed> $schema
+     * @return array<string,mixed>
+     */
+    private function buildResponseRequestPayload(
+        array $contentItems,
+        array $schema,
+        bool $strict,
+    ): array {
+        $payload = [
+            'model' => $this->model,
+            'top_p' => $this->topP,
+            'input' => [[
+                'role' => 'user',
+                'content' => $contentItems,
+            ]],
+            'text' => [
+                'format' => [
+                    'type' => 'json_schema',
+                    'name' => 'ifsc_infosheet_schedule',
+                    'schema' => $schema,
+                    'strict' => $strict,
+                ],
+            ],
+        ];
+
+        if ($this->temperatureConfigured) {
+            $payload['temperature'] = $this->temperature;
+        }
+
+        return $payload;
     }
 
     /** @param array<string,mixed> $context */
@@ -947,7 +707,7 @@ final readonly class OpenAiInfoSheetClient
                 continue;
             }
 
-            $parts[] = sprintf('%s=%s', $key, (string) $value);
+            $parts[] = sprintf('%s=%s', $key, $value);
         }
 
         return implode(', ', $parts);
@@ -1116,25 +876,20 @@ final readonly class OpenAiInfoSheetClient
         return is_string($value) ? trim($value) : '';
     }
 
-    private function readPositiveIntEnvironmentVariable(string $name, int $default): int
+    private function clampFloat(float $value, float $min, float $max): float
     {
-        $value = $this->readEnvironmentVariable($name);
-
-        if (!ctype_digit($value)) {
-            return $default;
+        if (!is_finite($value)) {
+            return $min;
         }
 
-        return max(1, (int) $value);
-    }
-
-    private function readNonNegativeIntEnvironmentVariable(string $name, int $default): int
-    {
-        $value = $this->readEnvironmentVariable($name);
-
-        if (!ctype_digit($value)) {
-            return $default;
+        if ($value < $min) {
+            return $min;
         }
 
-        return max(0, (int) $value);
+        if ($value > $max) {
+            return $max;
+        }
+
+        return $value;
     }
 }

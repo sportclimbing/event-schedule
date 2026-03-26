@@ -8,6 +8,7 @@
 namespace SportClimbing\EventDetails\Tests\Infrastructure\Observability\Listener;
 
 use PHPUnit\Framework\TestCase;
+use SportClimbing\EventDetails\Domain\Event\Entity\ScheduleGenerationFinishedEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetScheduleCacheHitEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadFailedEvent;
 use SportClimbing\EventDetails\Infrastructure\Observability\Event\InfoSheetPdfDownloadedEvent;
@@ -55,6 +56,9 @@ final class StdoutObservabilityListenerTest extends TestCase
             cacheId: 'abc123',
             path: '/tmp/cache.json',
         ));
+        $listener->onScheduleGenerationFinished(new ScheduleGenerationFinishedEvent(
+            outputFilePath: '/tmp/events.json',
+        ));
 
         $output = (string) file_get_contents($outputPath);
 
@@ -63,6 +67,7 @@ final class StdoutObservabilityListenerTest extends TestCase
         self::assertStringContainsString('openai request succeeded', $output);
         self::assertStringContainsString('openai request failed', $output);
         self::assertStringContainsString('infosheet cache file found and used', $output);
+        self::assertStringContainsString('schedule generation finished', $output);
 
         @unlink($outputPath);
     }

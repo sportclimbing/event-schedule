@@ -44,6 +44,9 @@ final class GenerateScheduleReleaseNotesCommandTest extends TestCase
         self::assertStringContainsString(sprintf('| Previous file | `%s` |', $previousPath), $output);
         self::assertStringContainsString(sprintf('| Current file | `%s` |', $currentPath), $output);
         self::assertStringContainsString('| Added events | 1 |', $output);
+        self::assertStringContainsString('| Added rounds | 0 |', $output);
+        self::assertStringContainsString('| Removed rounds | 0 |', $output);
+        self::assertStringContainsString('| Changed rounds | 0 |', $output);
         self::assertStringContainsString('## Added Events', $output);
 
         $this->removeDirectory($workDir);
@@ -79,6 +82,9 @@ final class GenerateScheduleReleaseNotesCommandTest extends TestCase
         self::assertStringContainsString('| Added events | 1 |', $display);
         self::assertStringContainsString('| Removed events | 1 |', $display);
         self::assertStringContainsString('| Changed events | 1 |', $display);
+        self::assertStringContainsString('| Added rounds | 0 |', $display);
+        self::assertStringContainsString('| Removed rounds | 0 |', $display);
+        self::assertStringContainsString('| Changed rounds | 0 |', $display);
         self::assertStringContainsString('## Added Events', $display);
         self::assertStringContainsString('| 3 | C |', $display);
         self::assertStringContainsString('## Removed Events', $display);
@@ -158,6 +164,9 @@ final class GenerateScheduleReleaseNotesCommandTest extends TestCase
             '| 1 | A | schedule[0].starts at | 2026-06-20 19:00 | 2026-06-20 20:00 |',
             $display,
         );
+        self::assertStringContainsString('| Added rounds | 0 |', $display);
+        self::assertStringContainsString('| Removed rounds | 0 |', $display);
+        self::assertStringContainsString('| Changed rounds | 1 |', $display);
         self::assertStringNotContainsString('{"name":"Final"', $display);
 
         $this->removeDirectory($workDir);
