@@ -362,7 +362,7 @@ final readonly class OpenAiInfoSheetClient
             - Also extract ticket info when available:
               - ticket_purchase_url: URL where tickets can be purchased.
               - ticket_price: numeric ticket price only (no currency symbol/code), string format.
-              - ticket_currency: ticket price currency as ISO code when possible (e.g. EUR, USD, CHF), otherwise symbol. Return "null" when no price can be found
+              - ticket_currency: ticket price currency as ISO code when possible (e.g. EUR, USD, CHF), otherwise convert symbol to ISO code. Return "null" when no price can be found
               - ticket_summary: concise attendee-facing summary with ticket notes (for example if entry is free, where to buy tickets, notable conditions/restrictions, and any practical attendee hints).
                 - Look well, this should never be empty. There is always info regarding tickets, even if it's just TBA or similar
             - If no ticket information exists, set ticket_purchase_url, ticket_price, ticket_currency, and ticket_summary to null.
@@ -371,11 +371,14 @@ final readonly class OpenAiInfoSheetClient
             Round name rules:
              - Use regular single quotes (') instead of fancy quotes
              - They should have the first letter of each word capitalized
-             - Keep final, semi-final, and qualification singular (eg "Final" instead of Finals)
+             - Keep the words "Final", "Semi-Final", and "Qualification" singular (eg "Final" instead of Finals)
              - Semi Final round names should be spelled as "Semi-Final"
              - They all should include gender (eg "Men's", "Women's" or "Men's & Women's"), followed by the discipline ("Boulder", "Lead", or "Speed"), followed by "Qualification", "Semi-Final" or "Final".
-               - Some valid examples: "Women's Boulder Final", "Men's & Women's Lead Qualification", "Men's Speed Semi-Final"
-             - If a round name can't be found, take your best guess keeping the above format. Never keep it empty/null
+               - Some valid examples:
+                 - "Women's Boulder Final"
+                 - "Men's & Women's Lead Qualification"
+                 - "Men's Speed Semi-Final"
+             - If a round name can't be found, take your best guess keeping the above format. Never leave it empty/null
              - If gender is not specified or it says "Mixed", assume it's "Men's & Women's"
              
             No mistakes! 

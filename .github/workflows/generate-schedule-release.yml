@@ -14,9 +14,9 @@ on:
         description: "Force infosheet re-parse and ignore cached schedule data."
         required: false
         type: boolean
-        default: true
+        default: false
   schedule:
-    - cron: '0 5 * * *'
+    - cron: '0 1 * * *'
 
 permissions:
   contents: write
