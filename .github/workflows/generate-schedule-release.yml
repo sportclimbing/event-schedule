@@ -86,7 +86,6 @@ jobs:
             --league paraclimbing \
             --outfile events-with-schedules.json \
             --openai-model gpt-5-mini \
-            --openai-temperature 0 \
             --openai-top-p 1)
 
           if [ "${{ steps.force_rescan.outputs.value }}" = "true" ]; then
