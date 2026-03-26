@@ -125,7 +125,7 @@ final class OpenAiInfoSheetPdfContentBuilder
                 continue;
             }
 
-            $parts[] = sprintf('%s=%s', $key, (string) $value);
+            $parts[] = sprintf('%s=%s', $key, $value);
         }
 
         return implode(', ', $parts);

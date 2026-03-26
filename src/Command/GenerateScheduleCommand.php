@@ -11,6 +11,7 @@ use JsonException;
 use Psr\Container\ContainerInterface;
 use RuntimeException;
 use SportClimbing\EventDetails\Domain\Event\Entity\ScheduleGenerationFinishedEvent;
+use SportClimbing\EventDetails\Domain\Event\Entity\SupportedLeagueSeason;
 use SportClimbing\EventDetails\Domain\Event\Service\RecentEventsScheduleSyncService;
 use SportClimbing\EventDetails\Infrastructure\Schedule\OpenAi\OpenAiInfoSheetClient;
 use Throwable;
@@ -25,9 +26,6 @@ final class GenerateScheduleCommand extends Command
 {
     public const string NAME = 'sportclimbing:generate-schedule';
     private const string DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
-    private const int WORLD_CUPS_LEAGUE_SEASON_ID = 457;
-    private const int GAMES_LEAGUE_SEASON_ID = 318;
-    private const int PARACLIMBING_LEAGUE_SEASON_ID = 438;
 
     public function __construct(
         private readonly ContainerInterface $container,
@@ -55,7 +53,10 @@ final class GenerateScheduleCommand extends Command
                 'league',
                 null,
                 InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
-                'League filter (repeatable). Allowed values: world-cups, games, paraclimbing.',
+                sprintf(
+                    'League filter (repeatable). Allowed values: %s.',
+                    implode(', ', SupportedLeagueSeason::allowedCliValues()),
+                ),
             )
             ->addOption(
                 'outfile',
@@ -262,20 +263,15 @@ final class GenerateScheduleCommand extends Command
     private function resolveLeagueSeasonIds(InputInterface $input): array
     {
         $leagueOptionValues = $input->getOption('league');
+        $allowedLeagueValues = implode(', ', SupportedLeagueSeason::allowedCliValues());
 
         if (!is_array($leagueOptionValues) || $leagueOptionValues === []) {
-            return [
-                self::WORLD_CUPS_LEAGUE_SEASON_ID,
-                self::GAMES_LEAGUE_SEASON_ID,
-                self::PARACLIMBING_LEAGUE_SEASON_ID,
-            ];
+            return array_map(
+                static fn (SupportedLeagueSeason $leagueSeason): int => $leagueSeason->value,
+                SupportedLeagueSeason::defaults(),
+            );
         }
 
-        $knownLeagues = [
-            'world-cups' => self::WORLD_CUPS_LEAGUE_SEASON_ID,
-            'games' => self::GAMES_LEAGUE_SEASON_ID,
-            'paraclimbing' => self::PARACLIMBING_LEAGUE_SEASON_ID,
-        ];
         $selectedLeagueSeasonIds = [];
 
         foreach ($leagueOptionValues as $leagueOptionValue) {
@@ -285,13 +281,21 @@ final class GenerateScheduleCommand extends Command
 
             $normalizedLeague = strtolower(trim($leagueOptionValue));
 
-            if ($normalizedLeague === '' || !array_key_exists($normalizedLeague, $knownLeagues)) {
+            if ($normalizedLeague === '') {
                 throw new RuntimeException(
-                    'Invalid --league value. Allowed values: world-cups, games, paraclimbing.',
+                    sprintf('Invalid --league value. Allowed values: %s.', $allowedLeagueValues),
                 );
             }
 
-            $leagueSeasonId = $knownLeagues[$normalizedLeague];
+            $leagueSeason = SupportedLeagueSeason::fromCliValue($normalizedLeague);
+
+            if ($leagueSeason === null) {
+                throw new RuntimeException(
+                    sprintf('Invalid --league value. Allowed values: %s.', $allowedLeagueValues),
+                );
+            }
+
+            $leagueSeasonId = $leagueSeason->value;
 
             if (!in_array($leagueSeasonId, $selectedLeagueSeasonIds, true)) {
                 $selectedLeagueSeasonIds[] = $leagueSeasonId;

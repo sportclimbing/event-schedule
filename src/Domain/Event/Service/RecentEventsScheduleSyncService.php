@@ -10,6 +10,7 @@ namespace SportClimbing\EventDetails\Domain\Event\Service;
 use DateTimeInterface;
 use SportClimbing\EventDetails\Domain\Event\Entity\League;
 use SportClimbing\EventDetails\Domain\Event\Entity\EventInfo;
+use SportClimbing\EventDetails\Domain\Event\Entity\SupportedLeagueSeason;
 use SportClimbing\EventDetails\Domain\Event\Port\EventInfoProviderInterface;
 use SportClimbing\EventDetails\Domain\Event\Port\EventScheduleCacheInterface;
 use SportClimbing\EventDetails\Domain\Event\Port\InfoSheetPdfDownloaderInterface;
@@ -22,10 +23,6 @@ use Throwable;
 
 final readonly class RecentEventsScheduleSyncService
 {
-    private const int WORLD_CUPS_LEAGUE_SEASON_ID = 457;
-    private const int GAMES_LEAGUE_SEASON_ID = 318;
-    private const int PARACLIMBING_LEAGUE_SEASON_ID = 438;
-
     public function __construct(
         private RecentLeagueProviderInterface $recentLeagueProvider,
         private EventInfoProviderInterface $eventInfoProvider,
@@ -38,7 +35,7 @@ final readonly class RecentEventsScheduleSyncService
     /** @return array<array<string,mixed>> */
     public function sync(
         int $seasonYear,
-        array $leagueSeasonIds = [457, 318, 438],
+        array $leagueSeasonIds,
         bool $forceRescan = false,
     ): array {
         $availableLeagues = $this->recentLeagueProvider->fetchRecentLeagueIds($seasonYear);
@@ -138,15 +135,10 @@ final readonly class RecentEventsScheduleSyncService
         $categories = [];
 
         foreach ($requestedLeagueSeasonIds as $requestedLeagueSeasonId) {
-            $category = match ($requestedLeagueSeasonId) {
-                self::WORLD_CUPS_LEAGUE_SEASON_ID => 'world-cups',
-                self::GAMES_LEAGUE_SEASON_ID => 'games',
-                self::PARACLIMBING_LEAGUE_SEASON_ID => 'paraclimbing',
-                default => null,
-            };
+            $leagueSeason = SupportedLeagueSeason::tryFrom($requestedLeagueSeasonId);
 
-            if ($category !== null) {
-                $categories[] = $category;
+            if ($leagueSeason !== null) {
+                $categories[] = $leagueSeason->cliValue();
             }
         }
 

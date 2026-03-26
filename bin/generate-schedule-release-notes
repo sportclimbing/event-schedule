@@ -8,6 +8,6 @@ require __DIR__ . '/../vendor/autoload.php';
 
 $application = new Application('World Climbing Schedule Release Notes Generator');
 $application->addCommand(new GenerateScheduleReleaseNotesCommand());
-$application->setDefaultCommand(GenerateScheduleReleaseNotesCommand::NAME, true);
+$application->setDefaultCommand(GenerateScheduleReleaseNotesCommand::NAME, isSingleCommand: true);
 
 exit($application->run());

@@ -11,6 +11,6 @@ $container = (new SymfonyServiceContainerFactory())->create();
 
 $application = new Application('World Climbing Schedule Generator');
 $application->addCommand(new GenerateScheduleCommand($container));
-$application->setDefaultCommand(GenerateScheduleCommand::NAME, true);
+$application->setDefaultCommand(GenerateScheduleCommand::NAME, isSingleCommand: true);
 
 exit($application->run());
