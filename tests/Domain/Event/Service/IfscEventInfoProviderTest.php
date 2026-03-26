@@ -43,6 +43,7 @@ final class IfscEventInfoProviderTest extends TestCase
                     country: 'AUT',
                     timeZone: 'Europe/Vienna',
                     disciplineKinds: ['Lead & Boulder', 'Speed'],
+                    categories: ['Men', 'Women'],
                 ),
             ),
         );
@@ -61,6 +62,7 @@ final class IfscEventInfoProviderTest extends TestCase
         self::assertSame('Innsbruck, Austria', $event->location);
         self::assertSame('Europe/Vienna', $event->timeZone->getName());
         self::assertSame(['lead', 'boulder', 'speed'], $event->disciplines);
+        self::assertSame(['men', 'women'], $event->categories);
         self::assertSame('https://ifsc.results.info/events/1001/infosheet', $event->infosheetUrl);
         self::assertSame('https://tickets.example.com/innsbruck', $event->ticketUrl);
         self::assertSame('45.00', $event->ticketPrice);
@@ -88,6 +90,7 @@ final class IfscEventInfoProviderTest extends TestCase
                     country: 'USA',
                     timeZone: 'America/Denver',
                     disciplineKinds: ['Boulder'],
+                    categories: ['Men'],
                 ),
             ),
         );
@@ -118,6 +121,7 @@ final class IfscEventInfoProviderTest extends TestCase
                     country: 'SUI',
                     timeZone: 'Invalid/Timezone',
                     disciplineKinds: ['Lead'],
+                    categories: [],
                 ),
             ),
         );

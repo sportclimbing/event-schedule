@@ -77,6 +77,7 @@ final readonly class GuzzleIfscApiClient implements IfscApiClientInterface
             'event details response',
         );
         $disciplines = [];
+        $categories = [];
 
         foreach ($this->requireArrayProperty($payload, 'disciplines', 'event details response') as $index => $discipline) {
             $disciplinePayload = $this->requireObject(
@@ -87,14 +88,34 @@ final readonly class GuzzleIfscApiClient implements IfscApiClientInterface
             $disciplines[] = $this->requireStringProperty($disciplinePayload, 'kind', 'event discipline');
         }
 
+        foreach ($this->optionalArrayProperty($payload, 'd_cats', 'event details response') ?? [] as $index => $dCat) {
+            $dCatPayload = $this->requireObject(
+                $dCat,
+                sprintf('event d_cat at index %s', $index),
+            );
+
+            $categoryName = $this->firstOptionalStringProperty(
+                $dCatPayload,
+                ['category_name', 'category', 'dcat_name'],
+                'event d_cat',
+            );
+
+            $normalizedCategory = $this->normalizeGenderCategory($categoryName);
+
+            if ($normalizedCategory !== null) {
+                $categories[] = $normalizedCategory;
+            }
+        }
+
         return new EventDetails(
             id: $this->requireIntProperty($payload, 'id', 'event details response'),
             leagueId: $this->requireIntProperty($payload, 'league_id', 'event details response'),
             leagueSeasonId: $this->requireIntProperty($payload, 'league_season_id', 'event details response'),
             location: $this->requireStringProperty($payload, 'location', 'event details response'),
-            country: $this->requireStringProperty($payload, 'country', 'event details response'),
-            timeZone: $this->requireTimeZone($payload),
+            country: $this->resolveCountry($payload),
+            timeZone: $this->resolveTimeZone($payload),
             disciplineKinds: $disciplines,
+            categories: array_values(array_unique($categories)),
         );
     }
 
@@ -113,8 +134,9 @@ final readonly class GuzzleIfscApiClient implements IfscApiClientInterface
     }
 
     /**
+     * @param string $uri
      * @param array<string, mixed> $options
-     * @return object|array<mixed>
+     * @return object|array
      */
     private function request(string $uri, array $options = []): object|array
     {
@@ -214,7 +236,6 @@ final readonly class GuzzleIfscApiClient implements IfscApiClientInterface
         return (string) $payload->{$key};
     }
 
-    /** @return array<mixed> */
     private function requireArrayProperty(object $payload, string $key, string $context): array
     {
         if (!isset($payload->{$key}) || !is_array($payload->{$key})) {
@@ -224,12 +245,107 @@ final readonly class GuzzleIfscApiClient implements IfscApiClientInterface
         return $payload->{$key};
     }
 
-    private function requireTimeZone(object $payload): string
+    private function optionalArrayProperty(object $payload, string $key, string $context): ?array
     {
-        if (!isset($payload->timezone) || !is_object($payload->timezone)) {
-            throw new IfscApiClientException('Expected "timezone" to be object in event details response.');
+        if (!property_exists($payload, $key) || $payload->{$key} === null) {
+            return null;
         }
 
-        return $this->requireStringProperty($payload->timezone, 'value', 'event details timezone');
+        if (!is_array($payload->{$key})) {
+            throw new IfscApiClientException(sprintf('Expected "%s" to be array|null in %s.', $key, $context));
+        }
+
+        return $payload->{$key};
+    }
+
+    private function resolveTimeZone(object $payload): string
+    {
+        if (isset($payload->timezone) && is_object($payload->timezone)) {
+            $timeZone = $this->optionalStringProperty($payload->timezone, 'value', 'event details timezone');
+
+            if ($timeZone !== null && trim($timeZone) !== '') {
+                return trim($timeZone);
+            }
+        }
+
+        if (isset($payload->timezone) && is_string($payload->timezone) && trim($payload->timezone) !== '') {
+            return trim($payload->timezone);
+        }
+
+        $startsAt = $this->optionalStringProperty($payload, 'starts_at', 'event details response');
+
+        if ($startsAt !== null) {
+            $timeZoneFromStartsAt = $this->extractTimeZoneSuffix($startsAt);
+
+            if ($timeZoneFromStartsAt !== null) {
+                return $timeZoneFromStartsAt;
+            }
+        }
+
+        return 'UTC';
+    }
+
+    private function normalizeGenderCategory(?string $rawCategory): ?string
+    {
+        if ($rawCategory === null) {
+            return null;
+        }
+
+        if (preg_match('/\bwomen\b/i', $rawCategory) === 1) {
+            return 'women';
+        }
+
+        if (preg_match('/\bmen\b/i', $rawCategory) === 1) {
+            return 'men';
+        }
+
+        return null;
+    }
+
+    private function resolveCountry(object $payload): string
+    {
+        $country = $this->optionalStringProperty($payload, 'country', 'event details response');
+
+        if ($country !== null && trim($country) !== '') {
+            return strtoupper(trim($country));
+        }
+
+        foreach (['location', 'name'] as $field) {
+            $value = $this->optionalStringProperty($payload, $field, 'event details response');
+
+            if ($value === null || trim($value) === '') {
+                continue;
+            }
+
+            $countryFromValue = $this->extractCountryCode($value);
+
+            if ($countryFromValue !== null) {
+                return $countryFromValue;
+            }
+        }
+
+        return 'UNK';
+    }
+
+    private function extractCountryCode(string $value): ?string
+    {
+        if (preg_match('/\(([A-Z]{3})\)/', $value, $matches) === 1) {
+            return $matches[1];
+        }
+
+        if (preg_match('/,\s*([A-Z]{3})\b/', $value, $matches) === 1) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
+    private function extractTimeZoneSuffix(string $value): ?string
+    {
+        if (preg_match('/\s([A-Z]{2,6})$/', trim($value), $matches) !== 1) {
+            return null;
+        }
+
+        return $matches[1];
     }
 }

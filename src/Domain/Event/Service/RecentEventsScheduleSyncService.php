@@ -8,6 +8,7 @@
 namespace SportClimbing\EventDetails\Domain\Event\Service;
 
 use DateTimeInterface;
+use SportClimbing\EventDetails\Domain\Event\Entity\League;
 use SportClimbing\EventDetails\Domain\Event\Entity\EventInfo;
 use SportClimbing\EventDetails\Domain\Event\Port\EventInfoProviderInterface;
 use SportClimbing\EventDetails\Domain\Event\Port\EventScheduleCacheInterface;
@@ -21,6 +22,10 @@ use Throwable;
 
 final readonly class RecentEventsScheduleSyncService
 {
+    private const int WORLD_CUPS_LEAGUE_SEASON_ID = 457;
+    private const int GAMES_LEAGUE_SEASON_ID = 318;
+    private const int PARACLIMBING_LEAGUE_SEASON_ID = 438;
+
     public function __construct(
         private RecentLeagueProviderInterface $recentLeagueProvider,
         private EventInfoProviderInterface $eventInfoProvider,
@@ -36,11 +41,22 @@ final readonly class RecentEventsScheduleSyncService
         array $leagueSeasonIds = [457, 318, 438],
         bool $forceRescan = false,
     ): array {
-        $leagues = $this->recentLeagueProvider->fetchRecentLeagueIds($seasonYear);
+        $availableLeagues = $this->recentLeagueProvider->fetchRecentLeagueIds($seasonYear);
+        $resolvedLeagueSeasonIds = $this->resolveLeagueSeasonIdsForSeason(
+            requestedLeagueSeasonIds: $leagueSeasonIds,
+            availableLeagues: $availableLeagues,
+        );
+        $leagues = $resolvedLeagueSeasonIds === []
+            ? $availableLeagues
+            : $this->filterLeaguesBySeasonIds(
+                leagues: $availableLeagues,
+                allowedLeagueSeasonIds: $resolvedLeagueSeasonIds,
+            );
+        $eventLeagueSeasonIds = $resolvedLeagueSeasonIds === [] ? $leagueSeasonIds : $resolvedLeagueSeasonIds;
         $events = [];
 
         foreach ($this->eventInfoProvider->fetchEventsForLeagues($leagues) as $event) {
-            if (!in_array($event->leagueSeasonId, $leagueSeasonIds)) {
+            if (!in_array($event->leagueSeasonId, $eventLeagueSeasonIds, true)) {
                 continue;
             }
 
@@ -51,6 +67,113 @@ final readonly class RecentEventsScheduleSyncService
         $this->eventScheduleCache->save($events);
 
         return $events;
+    }
+
+    /**
+     * @param int[] $requestedLeagueSeasonIds
+     * @param array<int, League|int> $availableLeagues
+     * @return int[]
+     */
+    private function resolveLeagueSeasonIdsForSeason(
+        array $requestedLeagueSeasonIds,
+        array $availableLeagues,
+    ): array {
+        $allowedLeagueSeasonIds = [];
+        $allowedLeagueCategories = $this->requestedLeagueCategories($requestedLeagueSeasonIds);
+
+        foreach ($availableLeagues as $league) {
+            if ($league instanceof League) {
+                $leagueCategory = $this->leagueCategoryFromName($league->name);
+
+                if ($leagueCategory !== null && in_array($leagueCategory, $allowedLeagueCategories, true)) {
+                    $allowedLeagueSeasonIds[] = $league->id;
+
+                    continue;
+                }
+
+                if (in_array($league->id, $requestedLeagueSeasonIds, true)) {
+                    $allowedLeagueSeasonIds[] = $league->id;
+                }
+
+                continue;
+            }
+
+            if (is_int($league) && in_array($league, $requestedLeagueSeasonIds, true)) {
+                $allowedLeagueSeasonIds[] = $league;
+            }
+        }
+
+        return array_values(array_unique($allowedLeagueSeasonIds));
+    }
+
+    /**
+     * @param array<int, League|int> $leagues
+     * @param int[] $allowedLeagueSeasonIds
+     * @return array<int, League|int>
+     */
+    private function filterLeaguesBySeasonIds(array $leagues, array $allowedLeagueSeasonIds): array
+    {
+        $filteredLeagues = [];
+
+        foreach ($leagues as $league) {
+            if ($league instanceof League && in_array($league->id, $allowedLeagueSeasonIds, true)) {
+                $filteredLeagues[] = $league;
+                continue;
+            }
+
+            if (is_int($league) && in_array($league, $allowedLeagueSeasonIds, true)) {
+                $filteredLeagues[] = $league;
+            }
+        }
+
+        return $filteredLeagues;
+    }
+
+    /**
+     * @param int[] $requestedLeagueSeasonIds
+     * @return string[]
+     */
+    private function requestedLeagueCategories(array $requestedLeagueSeasonIds): array
+    {
+        $categories = [];
+
+        foreach ($requestedLeagueSeasonIds as $requestedLeagueSeasonId) {
+            $category = match ($requestedLeagueSeasonId) {
+                self::WORLD_CUPS_LEAGUE_SEASON_ID => 'world-cups',
+                self::GAMES_LEAGUE_SEASON_ID => 'games',
+                self::PARACLIMBING_LEAGUE_SEASON_ID => 'paraclimbing',
+                default => null,
+            };
+
+            if ($category !== null) {
+                $categories[] = $category;
+            }
+        }
+
+        return array_values(array_unique($categories));
+    }
+
+    private function leagueCategoryFromName(string $leagueName): ?string
+    {
+        $normalizedLeagueName = strtolower(trim($leagueName));
+
+        if ($normalizedLeagueName === '') {
+            return null;
+        }
+
+        if (str_contains($normalizedLeagueName, 'world cups and world championships')) {
+            return 'world-cups';
+        }
+
+        if (str_contains($normalizedLeagueName, 'paraclimbing')) {
+            return 'paraclimbing';
+        }
+
+        if ($normalizedLeagueName === 'games') {
+            return 'games';
+        }
+
+        return null;
     }
 
     /**
@@ -119,6 +242,7 @@ final readonly class RecentEventsScheduleSyncService
             'infosheet_url' => $event->infosheetUrl,
             'location' => $this->buildLocationNode($event),
             'disciplines' => $event->disciplines,
+            'categories' => $event->categories,
             'tickets' => $this->buildTicketNode($event, $ticketInfo),
             'schedule' => $this->scheduleToNode($schedules),
         ];

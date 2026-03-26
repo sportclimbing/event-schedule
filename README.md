@@ -1,13 +1,13 @@
-# IFSC Event Details
+# World Climbing Event Schedule
 
 [![Generate Schedule Release](https://github.com/sportclimbing/event-schedule/actions/workflows/generate-schedule-release.yml/badge.svg)](https://github.com/sportclimbing/event-schedule/actions/workflows/generate-schedule-release.yml)
 
-`sportclimbing/event-details` generates normalized IFSC event data with parsed infosheet schedules and ticket details.
+`sportclimbing/event-schedule` generates normalized IFSC event data with parsed infosheet schedules and ticket details.
 
 It fetches events from IFSC Results API, downloads infosheet PDFs, extracts round schedules with OpenAI, and outputs a single JSON payload:
 
 - top-level `events` array
-- event metadata (name, league, location, timezone, disciplines)
+- event metadata (name, league, location, timezone, disciplines, categories)
 - parsed `schedule` rounds with RFC3339 timestamps
 - ticket info (`purchase_url`, `price`, `currency`, `summary`)
 - optional `schedule_error` when parsing fails
@@ -51,10 +51,11 @@ Notes:
   - `--openai-http-retry-backoff-ms` (default: `500`)
 
 
-- if no `--league` options are provided, all supported league season ids are included
-  - world cups (`457`)
-  - games (`318`)
-  - paraclimbing (`438`)
+- if no `--league` options are provided, all supported league types are included
+  - world cups
+  - games
+  - paraclimbing
+  - season-specific league ids are resolved dynamically from IFSC `/api/v1/seasons/{id}`
 
 Useful examples:
 

@@ -464,6 +464,7 @@ final class OpenAiInfoSheetClientTest extends TestCase
             location: 'Innsbruck',
             country: 'AUT',
             disciplines: ['lead'],
+            categories: ['men', 'women'],
             infosheetUrl: null,
         );
     }

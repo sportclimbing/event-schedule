@@ -98,6 +98,7 @@ final class InfoSheetChatGptScheduleParserTest extends TestCase
             location: 'Bern',
             country: 'SUI',
             disciplines: ['lead'],
+            categories: ['men', 'women'],
             infosheetUrl: null,
         );
     }

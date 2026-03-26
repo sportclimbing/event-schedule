@@ -11,6 +11,7 @@ final readonly class EventDetails
 {
     /**
      * @param string[] $disciplineKinds
+     * @param string[] $categories
      */
     public function __construct(
         public int $id,
@@ -20,6 +21,7 @@ final readonly class EventDetails
         public string $country,
         public string $timeZone,
         public array $disciplineKinds,
+        public array $categories,
     ) {
     }
 }

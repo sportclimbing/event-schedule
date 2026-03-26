@@ -13,6 +13,7 @@ final readonly class EventInfo
 {
     /**
      * @param string[] $disciplines
+     * @param string[] $categories
      */
     public function __construct(
         public int $eventId,
@@ -26,6 +27,7 @@ final readonly class EventInfo
         public string $location,
         public string $country,
         public array $disciplines,
+        public array $categories,
         public ?string $infosheetUrl = null,
         public ?string $ticketUrl = null,
         public ?string $ticketPrice = null,

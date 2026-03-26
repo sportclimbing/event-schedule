@@ -10,14 +10,10 @@ namespace SportClimbing\EventDetails\Domain\Event\Service;
 use DateTimeZone;
 use Generator;
 use InvalidArgumentException;
-use SportClimbing\EventDetails\Domain\Event\Entity\EventCategory;
 use SportClimbing\EventDetails\Domain\Event\Entity\EventInfo;
-use SportClimbing\EventDetails\Domain\Event\Entity\EventRound;
 use SportClimbing\EventDetails\Domain\Event\Entity\League;
 use SportClimbing\EventDetails\Domain\Event\Exception\EventInfoProviderException;
 use SportClimbing\EventDetails\Domain\Event\Port\Dto\EventDetails;
-use SportClimbing\EventDetails\Domain\Event\Port\Dto\EventDetailsCategory;
-use SportClimbing\EventDetails\Domain\Event\Port\Dto\EventDetailsRound;
 use SportClimbing\EventDetails\Domain\Event\Port\Dto\LeagueEvent;
 use SportClimbing\EventDetails\Domain\Event\Port\EventInfoProviderInterface;
 use SportClimbing\EventDetails\Domain\Event\Port\IfscApiClientInterface;
@@ -107,6 +103,7 @@ final readonly class IfscEventInfoProvider implements EventInfoProviderInterface
             location: $this->normalizeLocation($eventDetails->location),
             country: $eventDetails->country,
             disciplines: $this->buildDisciplines($eventDetails->disciplineKinds),
+            categories: $this->buildCategories($eventDetails->categories),
             infosheetUrl: $leagueEvent->infosheetUrl,
             ticketUrl: $leagueEvent->ticketUrl,
             ticketPrice: $leagueEvent->ticketPrice,
@@ -169,36 +166,21 @@ final readonly class IfscEventInfoProvider implements EventInfoProviderInterface
     }
 
     /**
-     * @param EventDetailsCategory[] $categories
-     * @return EventCategory[]
+     * @param string[] $categories
+     * @return string[]
      */
     private function buildCategories(array $categories): array
     {
-        $eventCategories = [];
+        $normalizedCategories = [];
 
         foreach ($categories as $category) {
-            $rounds = array_map(
-                $this->buildRound(...),
-                $category->rounds,
-            );
+            $normalizedCategory = strtolower(trim($category));
 
-            $eventCategories[] = new EventCategory($rounds);
+            if ($normalizedCategory !== '') {
+                $normalizedCategories[] = $normalizedCategory;
+            }
         }
 
-        return $eventCategories;
-    }
-
-    private function buildRound(EventDetailsRound $round): EventRound
-    {
-        return new EventRound(
-            discipline: $round->discipline,
-            kind: $this->normalizeRoundName($round->name),
-            category: $round->category,
-        );
-    }
-
-    private function normalizeRoundName(string $name): string
-    {
-        return strtolower(str_replace(' ', '-', trim($name)));
+        return array_values(array_unique($normalizedCategories));
     }
 }

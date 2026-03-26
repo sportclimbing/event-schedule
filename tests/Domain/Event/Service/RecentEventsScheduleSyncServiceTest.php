@@ -12,6 +12,7 @@ use DateTimeZone;
 use Generator;
 use PHPUnit\Framework\TestCase;
 use SportClimbing\EventDetails\Domain\Event\Entity\EventInfo;
+use SportClimbing\EventDetails\Domain\Event\Entity\League;
 use SportClimbing\EventDetails\Domain\Event\Port\EventInfoProviderInterface;
 use SportClimbing\EventDetails\Domain\Event\Port\EventScheduleCacheInterface;
 use SportClimbing\EventDetails\Domain\Event\Port\InfoSheetPdfDownloaderInterface;
@@ -73,6 +74,7 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             'currency' => null,
             'summary' => null,
         ], $result[0]['tickets']);
+        self::assertSame(['men', 'women'], $result[0]['categories']);
         self::assertArrayNotHasKey('ticket_url', $result[0]);
         self::assertArrayNotHasKey('ticket_price', $result[0]);
         self::assertSame('Final', $result[0]['schedule'][0]['name']);
@@ -121,6 +123,53 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
         self::assertSame('Semi-final', $result[0]['schedule'][0]['name']);
         self::assertSame('Entry is paid. Buy tickets online before arrival.', $result[0]['tickets']['summary']);
         self::assertSame($result, $cacheWriter->savedEvents);
+    }
+
+    public function testSyncIncludesSelectedLeagueSeasonIdsWhenRecentLeagueProviderOmitsThem(): void
+    {
+        $eventInfoProvider = new FakeEventInfoProvider([]);
+        $service = new RecentEventsScheduleSyncService(
+            recentLeagueProvider: new FakeRecentLeagueProvider([457]),
+            eventInfoProvider: $eventInfoProvider,
+            infoSheetPdfDownloader: new FakeInfoSheetPdfDownloader(),
+            infoSheetScheduleParser: new FakeInfoSheetScheduleParser(
+                cachedSchedulesByUrl: [],
+                parsedSchedulesByUrl: [],
+            ),
+            eventScheduleCache: new RecordingEventScheduleCache(),
+        );
+
+        $service->sync(seasonYear: 2026, leagueSeasonIds: [318, 438]);
+
+        self::assertSame([457], $eventInfoProvider->lastLeagues);
+    }
+
+    public function testSyncMapsRequestedLeagueCategoriesToCurrentSeasonLeagueIdsFromLeagueNames(): void
+    {
+        $eventInfoProvider = new FakeEventInfoProvider([]);
+        $service = new RecentEventsScheduleSyncService(
+            recentLeagueProvider: new FakeRecentLeagueProvider([
+                new League(457, 'World Cups and World Championships'),
+                new League(463, 'Games'),
+                new League(469, 'IFSC Paraclimbing'),
+                new League(458, 'IFSC Youth'),
+            ]),
+            eventInfoProvider: $eventInfoProvider,
+            infoSheetPdfDownloader: new FakeInfoSheetPdfDownloader(),
+            infoSheetScheduleParser: new FakeInfoSheetScheduleParser(
+                cachedSchedulesByUrl: [],
+                parsedSchedulesByUrl: [],
+            ),
+            eventScheduleCache: new RecordingEventScheduleCache(),
+        );
+
+        $service->sync(seasonYear: 2026);
+
+        self::assertEquals([
+            new League(457, 'World Cups and World Championships'),
+            new League(463, 'Games'),
+            new League(469, 'IFSC Paraclimbing'),
+        ], $eventInfoProvider->lastLeagues);
     }
 
     public function testSyncConvertsZeroTicketPriceToNull(): void
@@ -372,6 +421,7 @@ final class RecentEventsScheduleSyncServiceTest extends TestCase
             location: $location,
             country: $country,
             disciplines: ['lead'],
+            categories: ['men', 'women'],
             infosheetUrl: $infosheetUrl,
         );
     }

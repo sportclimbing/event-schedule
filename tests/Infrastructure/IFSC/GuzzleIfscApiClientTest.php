@@ -78,10 +78,19 @@ final class GuzzleIfscApiClientTest extends TestCase
                         ],
                         'd_cats' => [
                             [
+                                'category_name' => 'Men',
                                 'category_rounds' => [
                                     ['name' => 'Qualification', 'kind' => 'Lead', 'category' => 'M'],
                                     ['name' => 'Final', 'kind' => 'Lead', 'category' => 'M'],
                                 ],
+                            ],
+                            [
+                                'category_name' => 'Women',
+                                'category_rounds' => [],
+                            ],
+                            [
+                                'category_name' => 'Women',
+                                'category_rounds' => [],
                             ],
                         ],
                     ], JSON_THROW_ON_ERROR),
@@ -95,8 +104,43 @@ final class GuzzleIfscApiClientTest extends TestCase
         self::assertSame(501, $details->id);
         self::assertSame('Europe/Paris', $details->timeZone);
         self::assertSame(['Lead', 'Speed'], $details->disciplineKinds);
+        self::assertSame(['men', 'women'], $details->categories);
         self::assertSame('Chamonix, FRA', $details->location);
         self::assertSame('FRA', $details->country);
+    }
+
+    public function testFetchEventDetailsSupportsLegacyPayloadWithMissingCountryAndTimezone(): void
+    {
+        $client = new GuzzleIfscApiClient(
+            httpClient: $this->buildHttpClient([
+                new Response(
+                    200,
+                    [],
+                    json_encode([
+                        'id' => 868,
+                        'name' => 'Paraclimbing Cup Laval (Boulder) 2014 - Laval (FRA) 2014',
+                        'league_id' => 3,
+                        'league_season_id' => 318,
+                        'location' => 'Lava_Paraclimbing_14',
+                        'country' => null,
+                        'starts_at' => '2014-06-26 00:00:00 UTC',
+                        'timezone' => null,
+                        'disciplines' => [
+                            ['kind' => 'Boulder'],
+                        ],
+                        'd_cats' => [],
+                    ], JSON_THROW_ON_ERROR),
+                ),
+            ]),
+            sessionToken: 'session-token',
+        );
+
+        $details = $client->fetchEventDetails(868);
+
+        self::assertSame('UTC', $details->timeZone);
+        self::assertSame('FRA', $details->country);
+        self::assertSame(['Boulder'], $details->disciplineKinds);
+        self::assertSame([], $details->categories);
     }
 
     public function testFetchLeagueEventsThrowsOnInvalidJson(): void

@@ -70,6 +70,7 @@ final class FakeIfscApiClientForLeagues implements IfscApiClientInterface
             country: '',
             timeZone: 'UTC',
             disciplineKinds: [],
+            categories: [],
         );
     }
 
