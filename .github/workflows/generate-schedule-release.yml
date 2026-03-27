@@ -153,9 +153,9 @@ jobs:
         if: steps.compare.outputs.changed == 'true'
         run: |
           php bin/generate-schedule-release-notes \
-            --previous previous-events-with-schedules.json \
-            --current events-with-schedules.json \
-            --outfile release-notes.txt
+            --previous "previous-events-with-schedules.json" \
+            --current "events-with-schedules.json" \
+            --outfile "release-notes.txt"
 
       - name: "Build release tag"
         if: steps.compare.outputs.changed == 'true'
@@ -180,6 +180,19 @@ jobs:
         uses: Actions-R-Us/actions-tagger@v2
         with:
           publish_latest_tag: true
+
+      - name: "Build Calendar"
+        if: steps.compare.outputs.changed == 'true'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: '${{ github.repository_owner }}',
+              repo: 'ifsc-calendar',
+              workflow_id: 'update-calendar.yml',
+              ref: 'main'
+            })
 
       - name: "No changes"
         if: steps.compare.outputs.changed != 'true'
