@@ -40,6 +40,7 @@ final class OpenAiInfoSheetPromptBuilder
               - ticket_currency: ticket price currency as ISO code when possible (e.g. EUR, USD, CHF), otherwise convert symbol to ISO code. Return "null" when no price can be found
               - ticket_summary: concise attendee-facing summary with ticket notes (for example if entry is free, where to buy tickets, notable conditions/restrictions, and any practical attendee hints).
                 - Look well, this should never be empty. There is always info regarding tickets, even if it's just TBA or similar
+                - Do not include ticket purchase URLs in the summary, and do not make references to `ticket_purchase_url`
             - If no ticket information exists, set ticket_purchase_url, ticket_price, ticket_currency, and ticket_summary to null.
             - Don't use hyphens (—) or emojis
             - Remove exact duplicate rounds using (name, starts_at, ends_at).
