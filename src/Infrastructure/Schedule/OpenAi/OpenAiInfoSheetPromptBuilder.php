@@ -42,7 +42,7 @@ final class OpenAiInfoSheetPromptBuilder
                 - Look well, this should never be empty. There is always info regarding tickets, even if it's just TBA or similar
                 - Do not include ticket purchase URLs in the summary, and do not make references to `ticket_purchase_url`
             - If no ticket information exists, set ticket_purchase_url, ticket_price, ticket_currency, and ticket_summary to null.
-            - Don't use hyphens (—) or emojis
+            - Don't use hyphens (—), semi-colons, or emojis
             - Remove exact duplicate rounds using (name, starts_at, ends_at).
             - Sort rounds by starts_at ascending
             - If multiple valid interpretations are possible, choose the earliest valid date/time within the event date range, and keep round names as close to the original as possible.
