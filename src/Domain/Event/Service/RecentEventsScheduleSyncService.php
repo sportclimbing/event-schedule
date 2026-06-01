@@ -23,6 +23,17 @@ use Throwable;
 
 final readonly class RecentEventsScheduleSyncService
 {
+    /**
+     * Event IDs excluded from the generated schedule.
+     *
+     * Event 1534 "World Climbing Europe Para Championship Laval 2026" runs as a combined
+     * event together with event 1486 "World Climbing Para Series Laval 2026" — same venue,
+     * same dates, same schedule. Only the Para Series event is kept in the output.
+     *
+     * @var int[]
+     */
+    private const array EXCLUDED_EVENT_IDS = [1534];
+
     public function __construct(
         private RecentLeagueProviderInterface $recentLeagueProvider,
         private EventInfoProviderInterface $eventInfoProvider,
@@ -61,6 +72,10 @@ final readonly class RecentEventsScheduleSyncService
 
         foreach ($this->eventInfoProvider->fetchEventsForLeagues($leagues) as $event) {
             if (!in_array($event->leagueSeasonId, $eventLeagueSeasonIds, true)) {
+                continue;
+            }
+
+            if (in_array($event->eventId, self::EXCLUDED_EVENT_IDS, true)) {
                 continue;
             }
 
