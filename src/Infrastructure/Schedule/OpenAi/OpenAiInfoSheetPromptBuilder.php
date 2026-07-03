@@ -60,6 +60,7 @@ final class OpenAiInfoSheetPromptBuilder
              - If a round name can't be found, take your best guess keeping the above format. Never leave it empty/null
              - If gender is not specified, assume it's "Men's & Women's"
              - Don't merge round lines. Each round is on its own line with its own schedule in the table
+             - Speed Relay: If the Final round is split into smaller rounds, such as "1/8 race", "1/4 race", "Semi-final", just add the "Final" round without sub-rounds.
              
             No mistakes! 
             PROMPT,
