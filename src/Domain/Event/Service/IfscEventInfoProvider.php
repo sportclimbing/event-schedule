@@ -60,7 +60,7 @@ final readonly class IfscEventInfoProvider implements EventInfoProviderInterface
     private function fetchLeagueEvents(League $league): array
     {
         try {
-            return $this->apiClient->fetchLeagueEvents($league->id);
+            return $this->apiClient->fetchLeagueEvents($league->id, $league->seasonId);
         } catch (Throwable $exception) {
             throw new EventInfoProviderException(
                 sprintf(

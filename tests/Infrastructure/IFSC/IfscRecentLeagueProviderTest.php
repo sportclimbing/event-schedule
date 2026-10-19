@@ -29,8 +29,8 @@ final class IfscRecentLeagueProviderTest extends TestCase
         $provider = new IfscRecentLeagueProvider($apiClient);
 
         self::assertEquals([
-            new League(457, 'duplicate should keep latest'),
-            new League(458, 'IFSC Youth'),
+            new League(457, 'duplicate should keep latest', 38),
+            new League(458, 'IFSC Youth', 38),
         ], $provider->fetchRecentLeagueIds());
         self::assertSame('/api/v1/seasons/38', $apiClient->lastUrl);
     }
@@ -55,7 +55,7 @@ final class FakeIfscApiClientForLeagues implements IfscApiClientInterface
     ) {
     }
 
-    public function fetchLeagueEvents(int $leagueId): array
+    public function fetchLeagueEvents(int $leagueId, ?int $seasonId = null): array
     {
         return [];
     }
