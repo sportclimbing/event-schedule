@@ -21,7 +21,7 @@ final readonly class GuzzleIfscApiClient implements IfscApiClientInterface
 {
     public function __construct(
         private ClientInterface $httpClient,
-        private string $sessionToken,
+        private IfscApiSession $session,
     ) {
     }
 
@@ -125,9 +125,11 @@ final readonly class GuzzleIfscApiClient implements IfscApiClientInterface
             RequestOptions::HEADERS => [
                 // Apparently, this is required to pass the authorization check
                 'referer' => IfscApiSessionAuthenticator::IFSC_RESULTS_INFO_PAGE,
+                'x-csrf-token' => $this->session->csrfToken,
+                'x-internal-token' => $this->session->internalToken,
             ],
             RequestOptions::COOKIES => CookieJar::fromArray(
-                cookies: [IfscApiSessionAuthenticator::IFSC_SESSION_COOKIE_NAME => $this->sessionToken],
+                cookies: [IfscApiSessionAuthenticator::IFSC_SESSION_COOKIE_NAME => $this->session->sessionId],
                 domain: 'ifsc.results.info',
             ),
         ]);

@@ -31,7 +31,7 @@ final readonly class IfscApiClientFactory
 
         return new GuzzleIfscApiClient(
             httpClient: new Client(array_replace_recursive($defaultConfig, $httpClientConfig)),
-            sessionToken: $this->authenticator->fetchSessionId(),
+            session: $this->authenticator->fetchSession(),
         );
     }
 }
