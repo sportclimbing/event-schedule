@@ -13,7 +13,7 @@ use SportClimbing\EventDetails\Domain\Event\Port\Dto\LeagueEvent;
 interface IfscApiClientInterface
 {
     /** @return LeagueEvent[] */
-    public function fetchLeagueEvents(int $leagueId): array;
+    public function fetchLeagueEvents(int $leagueId, ?int $seasonId = null): array;
 
     public function fetchEventDetails(int $eventId): EventDetails;
 

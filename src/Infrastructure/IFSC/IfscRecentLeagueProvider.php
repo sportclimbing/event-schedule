@@ -46,7 +46,7 @@ final readonly class IfscRecentLeagueProvider implements RecentLeagueProviderInt
             if (ctype_digit($basename)) {
                 $leagueId = (int) $basename;
                 $leagueName = $this->normalizeLeagueName($league->name ?? null, $leagueId);
-                $leaguesById[$leagueId] = new League($leagueId, $leagueName);
+                $leaguesById[$leagueId] = new League($leagueId, $leagueName, $seasonId);
             }
         }
 

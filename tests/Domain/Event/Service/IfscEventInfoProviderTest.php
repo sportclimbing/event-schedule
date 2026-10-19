@@ -153,7 +153,7 @@ final readonly class FakeIfscApiClient implements IfscApiClientInterface
     ) {
     }
 
-    public function fetchLeagueEvents(int $leagueId): array
+    public function fetchLeagueEvents(int $leagueId, ?int $seasonId = null): array
     {
         return $this->leagueEvents;
     }
@@ -171,7 +171,7 @@ final readonly class FakeIfscApiClient implements IfscApiClientInterface
 
 final class FailingIfscApiClient implements IfscApiClientInterface
 {
-    public function fetchLeagueEvents(int $leagueId): array
+    public function fetchLeagueEvents(int $leagueId, ?int $seasonId = null): array
     {
         throw new RuntimeException('network down');
     }

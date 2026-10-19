@@ -31,6 +31,7 @@ final class GuzzleIfscApiClientTest extends TestCase
                         'events' => [
                             [
                                 'event_id' => 501,
+                                'league_season_id' => 12,
                                 'event' => 'IFSC World Cup Chamonix',
                                 'local_start_date' => '2026-07-12',
                                 'local_end_date' => '2026-07-13',
@@ -40,6 +41,13 @@ final class GuzzleIfscApiClientTest extends TestCase
                                 'ticket_price' => 35,
                                 'ticket_currency' => 'EUR',
                             ],
+                            [
+                                'event_id' => 502,
+                                'league_season_id' => 99,
+                                'event' => 'Other league event',
+                                'local_start_date' => '2026-07-14',
+                                'local_end_date' => '2026-07-15',
+                            ],
                         ],
                     ], JSON_THROW_ON_ERROR),
                 ),
@@ -47,7 +55,7 @@ final class GuzzleIfscApiClientTest extends TestCase
             session: new IfscApiSession('session-token', 'csrf-token', 'internal-token'),
         );
 
-        $events = $client->fetchLeagueEvents(12);
+        $events = $client->fetchLeagueEvents(12, 38);
 
         self::assertCount(1, $events);
         self::assertSame(501, $events[0]->eventId);
@@ -144,6 +152,19 @@ final class GuzzleIfscApiClientTest extends TestCase
         self::assertSame([], $details->categories);
     }
 
+    public function testFetchLeagueEventsThrowsWithoutSeasonId(): void
+    {
+        $client = new GuzzleIfscApiClient(
+            httpClient: $this->buildHttpClient([]),
+            session: new IfscApiSession('session-token', 'csrf-token', 'internal-token'),
+        );
+
+        $this->expectException(IfscApiClientException::class);
+        $this->expectExceptionMessage('A season id is required');
+
+        $client->fetchLeagueEvents(12);
+    }
+
     public function testFetchLeagueEventsThrowsOnInvalidJson(): void
     {
         $client = new GuzzleIfscApiClient(
@@ -155,7 +176,7 @@ final class GuzzleIfscApiClientTest extends TestCase
 
         $this->expectException(IfscApiClientException::class);
 
-        $client->fetchLeagueEvents(12);
+        $client->fetchLeagueEvents(12, 38);
     }
 
     public function testFetchLeagueEventsSendsAuthCookieAndRefererHeader(): void
@@ -178,11 +199,12 @@ final class GuzzleIfscApiClientTest extends TestCase
             session: new IfscApiSession('session-token-123', 'csrf-token-123', 'internal-token-123'),
         );
 
-        $client->fetchLeagueEvents(12);
+        $client->fetchLeagueEvents(12, 38);
 
         self::assertCount(1, $historyContainer);
 
         $request = $historyContainer[0]['request'];
+        self::assertSame('/api/v1/seasons/38', $request->getUri()->getPath());
         self::assertSame(
             IfscApiSessionAuthenticator::IFSC_RESULTS_INFO_PAGE,
             $request->getHeaderLine('referer'),

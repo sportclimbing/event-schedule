@@ -26,48 +26,55 @@ final readonly class GuzzleIfscApiClient implements IfscApiClientInterface
     }
 
     /** @return LeagueEvent[] */
-    public function fetchLeagueEvents(int $leagueId): array
+    public function fetchLeagueEvents(int $leagueId, ?int $seasonId = null): array
     {
+        if ($seasonId === null) {
+            throw new IfscApiClientException('A season id is required to fetch league events.');
+        }
+
         $payload = $this->requireObject(
-            $this->authenticatedGet(sprintf('/api/v1/season_leagues/%d', $leagueId)),
-            'season league response',
+            $this->authenticatedGet(sprintf('/api/v1/seasons/%d', $seasonId)),
+            'season response',
         );
-        $events = $this->requireArrayProperty($payload, 'events', 'season league response');
+        $events = $this->requireArrayProperty($payload, 'events', 'season response');
         $leagueEvents = [];
 
         foreach ($events as $index => $event) {
-            $eventPayload = $this->requireObject($event, sprintf('season league event at index %s', (string) $index));
+            $eventPayload = $this->requireObject($event, sprintf('season event at index %s', (string) $index));
 
-            $leagueEvents[] = new LeagueEvent(
-                eventId: $this->requireIntProperty($eventPayload, 'event_id', 'season league event'),
-                eventName: $this->requireStringProperty($eventPayload, 'event', 'season league event'),
-                localStartDate: $this->requireStringProperty($eventPayload, 'local_start_date', 'season league event'),
-                localEndDate: $this->requireStringProperty($eventPayload, 'local_end_date', 'season league event'),
-                leagueName: $this->firstOptionalStringProperty(
-                    $eventPayload,
-                    ['league_name', 'league', 'cup_name'],
-                    'season league event',
-                ),
-                infosheetUrl: $this->optionalStringProperty($eventPayload, 'infosheet_url', 'season league event'),
-                ticketUrl: $this->firstOptionalStringProperty(
-                    $eventPayload,
-                    ['ticket_url', 'ticket_purchase_url'],
-                    'season league event',
-                ),
-                ticketPrice: $this->optionalStringOrNumericProperty(
-                    $eventPayload,
-                    'ticket_price',
-                    'season league event',
-                ),
-                ticketCurrency: $this->firstOptionalStringProperty(
-                    $eventPayload,
-                    ['ticket_currency', 'currency'],
-                    'season league event',
-                ),
-            );
+            if (($eventPayload->league_season_id ?? null) === $leagueId) {
+                $leagueEvents[] = $this->mapLeagueEvent($eventPayload);
+            }
         }
 
         return $leagueEvents;
+    }
+
+    private function mapLeagueEvent(object $eventPayload): LeagueEvent
+    {
+        return new LeagueEvent(
+            eventId: $this->requireIntProperty($eventPayload, 'event_id', 'season event'),
+            eventName: $this->requireStringProperty($eventPayload, 'event', 'season event'),
+            localStartDate: $this->requireStringProperty($eventPayload, 'local_start_date', 'season event'),
+            localEndDate: $this->requireStringProperty($eventPayload, 'local_end_date', 'season event'),
+            leagueName: $this->firstOptionalStringProperty(
+                $eventPayload,
+                ['league_name', 'league', 'cup_name'],
+                'season event',
+            ),
+            infosheetUrl: $this->optionalStringProperty($eventPayload, 'infosheet_url', 'season event'),
+            ticketUrl: $this->firstOptionalStringProperty(
+                $eventPayload,
+                ['ticket_url', 'ticket_purchase_url'],
+                'season event',
+            ),
+            ticketPrice: $this->optionalStringOrNumericProperty($eventPayload, 'ticket_price', 'season event'),
+            ticketCurrency: $this->firstOptionalStringProperty(
+                $eventPayload,
+                ['ticket_currency', 'currency'],
+                'season event',
+            ),
+        );
     }
 
     public function fetchEventDetails(int $eventId): EventDetails

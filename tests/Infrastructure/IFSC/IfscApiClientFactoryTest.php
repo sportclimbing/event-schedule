@@ -32,6 +32,7 @@ final class IfscApiClientFactoryTest extends TestCase
                         'events' => [
                             [
                                 'event_id' => 42,
+                                'league_season_id' => 7,
                                 'event' => 'IFSC World Cup',
                                 'local_start_date' => '2026-08-10',
                                 'local_end_date' => '2026-08-11',
@@ -73,7 +74,7 @@ final class IfscApiClientFactoryTest extends TestCase
 
         $factory = new IfscApiClientFactory($authenticator);
         $client = $factory->create(['handler' => $handler]);
-        $events = $client->fetchLeagueEvents(7);
+        $events = $client->fetchLeagueEvents(7, 38);
 
         self::assertInstanceOf(GuzzleIfscApiClient::class, $client);
         self::assertCount(1, $events);
