@@ -52,11 +52,20 @@ final class IfscApiClientFactoryTest extends TestCase
             new Client([
                 'handler' => HandlerStack::create(
                     new MockHandler([
-                        new Response(200, [
-                            'Set-Cookie' => [
-                                IfscApiSessionAuthenticator::IFSC_SESSION_COOKIE_NAME . '=factory-session-token; path=/',
+                        new Response(
+                            200,
+                            [
+                                'Set-Cookie' => [
+                                    IfscApiSessionAuthenticator::IFSC_SESSION_COOKIE_NAME . '=factory-session-token; path=/',
+                                ],
                             ],
-                        ]),
+                            '<meta name="csrf-token" content="factory-csrf" />',
+                        ),
+                        new Response(
+                            200,
+                            [],
+                            json_encode(['entrypoint' => ['internal_api_token' => 'factory-internal']], JSON_THROW_ON_ERROR),
+                        ),
                     ]),
                 ),
             ]),
@@ -79,5 +88,6 @@ final class IfscApiClientFactoryTest extends TestCase
             IfscApiSessionAuthenticator::IFSC_SESSION_COOKIE_NAME . '=factory-session-token',
             $historyContainer[0]['request']->getHeaderLine('cookie'),
         );
+        self::assertSame('factory-internal', $historyContainer[0]['request']->getHeaderLine('x-internal-token'));
     }
 }

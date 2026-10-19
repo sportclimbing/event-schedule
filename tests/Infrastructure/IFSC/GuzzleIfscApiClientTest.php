@@ -15,6 +15,7 @@ use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
 use SportClimbing\EventDetails\Infrastructure\IFSC\Exception\IfscApiClientException;
 use SportClimbing\EventDetails\Infrastructure\IFSC\GuzzleIfscApiClient;
+use SportClimbing\EventDetails\Infrastructure\IFSC\IfscApiSession;
 use SportClimbing\EventDetails\Infrastructure\IFSC\IfscApiSessionAuthenticator;
 
 final class GuzzleIfscApiClientTest extends TestCase
@@ -43,7 +44,7 @@ final class GuzzleIfscApiClientTest extends TestCase
                     ], JSON_THROW_ON_ERROR),
                 ),
             ]),
-            sessionToken: 'session-token',
+            session: new IfscApiSession('session-token', 'csrf-token', 'internal-token'),
         );
 
         $events = $client->fetchLeagueEvents(12);
@@ -96,7 +97,7 @@ final class GuzzleIfscApiClientTest extends TestCase
                     ], JSON_THROW_ON_ERROR),
                 ),
             ]),
-            sessionToken: 'session-token',
+            session: new IfscApiSession('session-token', 'csrf-token', 'internal-token'),
         );
 
         $details = $client->fetchEventDetails(501);
@@ -132,7 +133,7 @@ final class GuzzleIfscApiClientTest extends TestCase
                     ], JSON_THROW_ON_ERROR),
                 ),
             ]),
-            sessionToken: 'session-token',
+            session: new IfscApiSession('session-token', 'csrf-token', 'internal-token'),
         );
 
         $details = $client->fetchEventDetails(868);
@@ -149,7 +150,7 @@ final class GuzzleIfscApiClientTest extends TestCase
             httpClient: $this->buildHttpClient([
                 new Response(200, [], '{"events":'),
             ]),
-            sessionToken: 'session-token',
+            session: new IfscApiSession('session-token', 'csrf-token', 'internal-token'),
         );
 
         $this->expectException(IfscApiClientException::class);
@@ -174,7 +175,7 @@ final class GuzzleIfscApiClientTest extends TestCase
                 ],
                 historyContainer: $historyContainer,
             ),
-            sessionToken: 'session-token-123',
+            session: new IfscApiSession('session-token-123', 'csrf-token-123', 'internal-token-123'),
         );
 
         $client->fetchLeagueEvents(12);
@@ -186,6 +187,8 @@ final class GuzzleIfscApiClientTest extends TestCase
             IfscApiSessionAuthenticator::IFSC_RESULTS_INFO_PAGE,
             $request->getHeaderLine('referer'),
         );
+        self::assertSame('csrf-token-123', $request->getHeaderLine('x-csrf-token'));
+        self::assertSame('internal-token-123', $request->getHeaderLine('x-internal-token'));
         self::assertStringContainsString(
             IfscApiSessionAuthenticator::IFSC_SESSION_COOKIE_NAME . '=session-token-123',
             $request->getHeaderLine('cookie'),
